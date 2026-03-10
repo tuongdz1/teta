@@ -1,0 +1,934 @@
+%==========================
+% Chapter 2: Bayesian Predictive Inference
+%==========================
+
+\chapter{Bayesian Predictive Inference}
+\input{figures/ch02_bayesian_predictive/defs}
+
+\begin{keyinsight}
+Bayesian inference is not just about updating beliefs. It is about making predictions under uncertainty. When you have uncertainty about your model's parameters, you should integrate over that uncertainty rather than pretending you know the true parameters. This integration is the posterior predictive distribution, and it is the principled foundation for reliable prediction.
+\end{keyinsight}
+
+\vspace{1.5em}
+
+In Chapter 1, we learned that learning is compression and that log loss measures how many bits you need to encode data. But we treated the model as if it had fixed, known parameters. In reality, we are uncertain about the parameters. We see some training data and we infer what the parameters might be, but we are never completely sure.
+
+Bayesian inference gives us a principled framework for reasoning about this uncertainty. Instead of picking a single "best" set of parameters, we maintain a distribution over parameters. This distribution represents our uncertainty. When we make predictions, we integrate over this distribution to account for parameter uncertainty.
+
+This chapter teaches you the core concepts of Bayesian predictive inference. We will start with posteriors and posterior predictives, and understand how to make decisions under loss functions. Then we will explore exchangeability, which is the deep principle that says the order of data should not matter if examples are truly independent and identically distributed. We will see how modern deep learning relates to Bayesian inference, even though most models are not explicitly Bayesian. We will discuss selective prediction: when to abstain from making a prediction because your uncertainty is too high.
+
+Crucially, we will confront the hard truths that practitioners need to know: models are always misspecified, exact inference is computationally intractable, and approximations have fundamental limitations. Understanding both the power and the limits of Bayesian inference is essential for building reliable systems.
+
+By the end of this chapter, you will understand the Bayesian perspective on learning and prediction, and you will see how it connects to the information-theoretic foundations from Chapter 1.
+
+\vspace{2em}
+
+%==========================
+\section{Posterior and Posterior Predictive: Decisions Under Loss}
+
+\subsection{From Prior to Posterior}
+
+Bayesian inference starts with a prior distribution over parameters. Before seeing any data, you have some initial beliefs about what the parameters might be. This is $p(\theta)$, the prior.
+
+Then you observe data $D$. Bayes' theorem tells you how to update your beliefs:
+\begin{equation}
+p(\theta \mid D) = \frac{p(D \mid \theta) p(\theta)}{p(D)}
+\end{equation}
+
+\noindent The denominator $p(D)$ is the \emph{marginal likelihood} (also called the \emph{evidence}):
+\begin{equation}
+p(D)=\int p(D\mid \theta)\,p(\theta)\,d\theta.
+\end{equation}
+It is the normalizing constant that makes the posterior integrate to 1. We will come back to it later, because computing $p(D)$ is one reason exact Bayes becomes intractable in large models.
+
+The posterior $p(\theta \mid D)$ is your updated belief about the parameters after seeing the data. It combines what you knew before (the prior) with what the data tells you (the likelihood).
+
+Let me make this concrete. Suppose you are estimating the probability that a coin lands heads. Your prior might be a uniform distribution: before seeing any flips, all probabilities from 0 to 1 seem equally plausible. Then you flip the coin 10 times and get 7 heads. The posterior distribution will peak around $7/10 = 0.7$, but it will have some width reflecting your remaining uncertainty. You have updated your beliefs, but you are not completely certain.
+
+\begin{figure}[t]
+\centering
+\input{figures/ch02_bayesian_predictive/fig_2_1_bayesian_update}
+\caption{Bayesian updating for 7 heads and 3 tails: a uniform prior (Beta$(1,1)$) multiplied by the likelihood yields a posterior Beta$(8,4)$. The MLE (0.70) and posterior mean ($8/12\approx0.667$) are annotated to highlight shrinkage from averaging with the prior.}
+\label{fig:bayesian_update}
+\end{figure}
+
+\subsection{The Posterior Predictive Distribution}
+
+The posterior tells you about parameters, but what you really care about is predictions. If you flip the coin one more time, what is the probability it lands heads?
+
+A common plug-in answer is to estimate a single parameter value (say the MLE or MAP\footnote{MAP = \emph{maximum a posteriori}: $\hat{\theta}_{\text{MAP}}=\arg\max_\theta p(\theta\mid D)$.}) and then pretend it is true: predict using $p(x_{\text{new}}\mid \hat{\theta})$. But this discards your uncertainty about the parameter. What if the true parameter is actually 0.6 or 0.8? These possibilities matter.
+
+The Bayesian answer is to integrate over your uncertainty. The posterior predictive distribution is:
+\begin{equation}
+p(x_{\text{new}} \mid D) = \int p(x_{\text{new}} \mid \theta) p(\theta \mid D) \, d\theta
+\end{equation}
+
+In words: for each possible parameter value $\theta$, compute the probability of the new data $x_{\text{new}}$ under that parameter. Weight this probability by how plausible that parameter is given your posterior. Sum (integrate) over all possibilities.
+
+This is the right way to make predictions when you are uncertain about parameters. You are not committing to a single parameter value. You are averaging over all plausible values, weighted by their posterior probability.
+
+For a Bernoulli next step, this integral reduces to a simple identity: $p(\text{heads}\mid D)=\mathbb{E}[\theta\mid D]$. The advantage of the posterior predictive is not that it uses a different number for the next flip; it is that it provides a coherent distribution for future data (e.g., $m$ future flips) rather than collapsing uncertainty to a single $\hat{\theta}$.
+
+\vspace{1.5em}
+
+\begin{examplebox}
+\textbf{Posterior predictive for a coin flip}
+
+\vspace{0.5em}
+
+Suppose you flip a coin 10 times and observe 7 heads. You want to predict the next flip. Let us compare two approaches:
+
+\vspace{0.5em}
+
+\textbf{Maximum likelihood approach (non-Bayesian):}
+
+Estimate the parameter as $\hat{\theta} = 7/10 = 0.7$. Predict that the next flip is heads with probability 0.7.
+
+\vspace{0.5em}
+
+\textbf{Bayesian posterior predictive:}
+
+Start with a uniform prior $p(\theta) = 1$ for $\theta \in [0, 1]$. In the Beta distribution notation, this uniform prior is Beta(1, 1), where the two numbers are hyperparameters (not to be confused with the data counts).
+
+After observing 7 heads and 3 tails, we update using Bayes' rule. For the Beta-Binomial conjugate pair, the posterior is:
+\begin{equation*}
+p(\theta \mid D) = \text{Beta}(\theta; \alpha + n_H, \beta + n_T)
+\end{equation*}
+where $\alpha$ and $\beta$ are the prior hyperparameters (both 1 in our case), and $n_H = 7$ and $n_T = 3$ are the observed counts.
+
+So the posterior is Beta$(1 + 7, 1 + 3)$ = Beta$(8, 4)$. The "+1" terms come from the prior hyperparameters, not from adding anything to the observed data.
+
+The posterior predictive probability of heads is:
+\begin{equation*}
+p(\text{heads} \mid D) = \int_{0}^{1} \theta \cdot \text{Beta}(\theta; 8, 4) \, d\theta = \frac{8}{8+4} = \frac{8}{12} \approx 0.667
+\end{equation*}
+
+Notice this is slightly less than 0.7. Why? Because the Bayesian approach accounts for uncertainty. There is some posterior probability that the true parameter is less than 0.7, and this pulls the predictive probability down slightly. This is called shrinkage toward the prior.
+
+\vspace{0.5em}
+
+For large amounts of data, the posterior becomes very concentrated and the posterior predictive converges to the maximum likelihood estimate. But with small data, the Bayesian approach gives you more honest uncertainty quantification.
+\end{examplebox}
+
+\begin{figure}[t]
+\centering
+\input{figures/ch02_bayesian_predictive/fig_2_2_posterior_predictive}
+\caption{Posterior predictive averages over parameter uncertainty. (a) Posterior over $\theta$ with MLE and posterior mean. (b) Next-flip probabilities using a plug-in MLE versus the Bayesian posterior predictive, which is broader and more honest.}
+\label{fig:posterior_predictive}
+\end{figure}
+
+\vspace{1.5em}
+
+\subsection{Posterior Predictive Checks}
+
+Posterior predictive distributions are not only for making predictions; they are also a useful \emph{model checking} tool. The idea is simple:
+simulate replicated data $x^{\text{rep}}$ from the posterior predictive $p(x^{\text{rep}}\mid D)$ and compare salient summaries of $x^{\text{rep}}$ to those of the observed data $x$. Large, systematic discrepancies indicate misspecification.
+
+\vspace{0.5em}
+\noindent\textbf{A minimal recipe.}
+
+\begin{enumerate}
+\item Choose a discrepancy statistic $T(\cdot)$ that captures a behavior you care about (e.g., heavy tails, class balance, autocorrelation).
+\item Draw $\theta^{(s)}\sim p(\theta\mid D)$ and then simulate $x^{\text{rep},(s)}\sim p(\cdot\mid \theta^{(s)})$ for $s=1,\ldots,S$.
+\item Compare $T(x)$ to the distribution of $T(x^{\text{rep},(s)})$; compute a posterior predictive $p$-value if desired.
+\end{enumerate}
+
+\noindent\textit{Caution.} Posterior predictive $p$-values are not uniform under the null and are best used as diagnostics, not hypothesis tests. Use them to provoke model improvements.
+
+
+\subsection{Connection to Information Theory}
+
+Remember from Chapter 1 that cross entropy measures how many bits you need to encode data. The posterior predictive distribution gives you the optimal encoding when you are uncertain about parameters.
+
+If you knew the true parameter $\theta^*$, you would use $p(x \mid \theta^*)$ to encode data, and the expected codelength would be the entropy $H(p(x \mid \theta^*))$.
+
+But you do not know $\theta^*$. You only have a posterior distribution $p(\theta \mid D)$. The posterior predictive $p(x \mid D)$ is the optimal mixture: it minimizes the expected codelength in expectation over your posterior uncertainty.
+
+In fact, you can show that using the posterior predictive gives you the minimum expected codelength when averaging over the posterior. Any other encoding scheme (like using the posterior mean or MAP estimate) gives you longer expected codelength on average. The posterior predictive is optimal for compression when you have parameter uncertainty.
+
+\subsection{Decision Making Under Loss Functions}
+
+Prediction is not the end goal. You usually need to make decisions based on predictions. And different decisions have different costs when you are wrong.
+
+A loss function $L(d, y)$ tells you the cost of decision $d$ when the true outcome is $y$. Common examples:
+
+\begin{itemize}
+\item \textbf{Zero one loss:} $L(d, y) = \mathbb{I}[d \neq y]$ (you pay cost 1 if wrong, 0 if right). This is the loss that accuracy optimizes.
+
+\item \textbf{Squared loss:} $L(d, y) = (d - y)^2$ (you pay the squared error). This is the loss that mean squared error optimizes.
+
+\item \textbf{Absolute loss:} $L(d, y) = |d - y|$ (you pay the absolute error). This is less sensitive to outliers than squared loss.
+
+\item \textbf{Asymmetric loss:} $L(d, y) = c_1 \mathbb{I}[d < y] + c_2 \mathbb{I}[d > y]$ where $c_1 \neq c_2$ (false negatives and false positives have different costs).
+\end{itemize}
+
+The Bayesian decision rule is to choose the decision that minimizes expected loss under the posterior predictive. Here $x$ is the observed input/context (e.g., features); if there is no conditioning variable, you can omit it:
+\begin{equation}
+d^*(x) = \arg\min_{d} \mathbb{E}_{p(y \mid x, D)}[L(d, y)] = \arg\min_{d} \sum_{y} p(y \mid x, D) L(d, y)
+\end{equation}
+
+You compute the expected loss for each possible decision, using the posterior predictive distribution to weight the outcomes. Then you choose the decision with minimum expected loss.
+
+\subsection{Different Losses Give Different Optimal Decisions}
+
+This is a crucial point that is often missed. The optimal decision depends on the loss function, not just the posterior predictive distribution.
+
+For 0--1 loss, the optimal decision is the mode of the posterior predictive (the most likely outcome). For squared loss, the optimal decision is the mean of the posterior predictive. For absolute loss, the optimal decision is the median of the posterior predictive.
+
+\vspace{0.5em}
+
+\noindent\textit{A quick justification.} These are short but important derivations:
+
+\begin{itemize}
+\item \textbf{0--1 loss.} If $d$ picks a class label, then
+\[
+\mathbb{E}[\mathbb{I}[d\neq y]] = 1 - p(y=d\mid x,D),
+\]
+so minimizing expected loss is equivalent to maximizing $p(y=d\mid x,D)$: choose the posterior predictive mode.
+
+\item \textbf{Squared loss.} For real-valued $y$ and $L(d,y)=(d-y)^2$,
+\[
+\mathbb{E}[(d-y)^2] = d^2 - 2d\,\mathbb{E}[y\mid x,D] + \mathbb{E}[y^2\mid x,D],
+\]
+which is minimized at $d=\mathbb{E}[y\mid x,D]$.
+
+\item \textbf{Absolute loss.} For $L(d,y)=|d-y|$, any median of $p(y\mid x,D)$ minimizes the expected absolute deviation. Intuitively: moving $d$ to the right increases the loss from points to the left and decreases the loss from points to the right; the balance point is where at least half the probability mass lies on each side.
+\end{itemize}
+
+\vspace{1.5em}
+
+\begin{examplebox}
+\textbf{Different optimal decisions for different losses}
+
+\vspace{0.5em}
+
+Suppose you are predicting tomorrow's temperature to the nearest degree (1°C bins). Based on historical data and weather models, your posterior predictive distribution is a mixture: 70\% probability of a normal distribution centered at 20°C, and 30\% probability of a normal distribution centered at 5°C (there is a chance of an unusual cold front).
+
+\vspace{0.5em}
+
+The posterior predictive is bimodal with peaks at 20°C and 5°C, but the first peak is higher.
+
+\vspace{0.5em}
+
+\textbf{Under 0--1 loss} (you just want the correct 1°C bin):
+
+The optimal decision is the mode: 20°C (the most likely value).
+
+\vspace{0.5em}
+
+\textbf{Under squared loss} (you want to minimize squared error):
+
+The optimal decision is the mean: approximately $0.7 \times 20 + 0.3 \times 5 = 15.5$°C. This hedges between the two possibilities.
+
+\vspace{0.5em}
+
+\textbf{Under absolute loss} (you want to minimize absolute error):
+
+The optimal decision is the median, which is around 18°C (closer to 20°C because that mode has more probability mass).
+
+\vspace{0.5em}
+
+Notice that all three decisions are different, even though they are all based on the same posterior predictive distribution. The loss function matters. You need to be explicit about what costs you care about.
+\end{examplebox}
+
+\begin{figure}[t]
+\centering
+\input{figures/ch02_bayesian_predictive/fig_2_3_loss_decisions}
+\caption{Different loss functions pick different summaries of the posterior predictive---mode (0--1 loss on discretized bins), mean (squared loss), or median (absolute loss)---highlighting why decisions depend on costs.}
+\label{fig:loss_decisions}
+\end{figure}
+
+\vspace{1.5em}
+
+\subsection{Log Loss and Information Theory}
+
+Log loss (negative log likelihood) is another loss function, and it has special status in the Bayesian framework. When you minimize expected log loss, you are minimizing the expected codelength, which we discussed in Chapter 1.
+
+The optimal prediction under log loss is the full posterior predictive distribution itself. You do not collapse it to a point estimate. You report the entire distribution, and you evaluate log loss as:
+\begin{equation}
+L = -\log p(y \mid x, D)
+\end{equation}
+
+If $y$ is likely under your posterior predictive, the log loss is small (short codelength). If $y$ is unlikely, the log loss is large (long codelength). This is exactly the information-theoretic framework.
+
+Log loss is the proper scoring rule for probabilistic predictions. It incentivizes you to report your true beliefs. If you report a distribution different from your true posterior predictive, you will have higher expected log loss. This is why log loss is the foundation of training and evaluation in modern machine learning.
+
+\vspace{2em}
+
+%==========================
+\section{De Finetti and Exchangeability: Why Order Should Not Matter}
+
+\subsection{What Is Exchangeability?}
+
+Exchangeability is a deep concept that underlies much of Bayesian inference. A sequence of random variables $X_1, X_2, \ldots, X_n$ is exchangeable if their joint distribution is invariant under permutation. In other words, the order does not matter.
+
+Formally, for any permutation $\pi$:
+\begin{equation}
+p(X_1, X_2, \ldots, X_n) = p(X_{\pi(1)}, X_{\pi(2)}, \ldots, X_{\pi(n)})
+\end{equation}
+
+Exchangeability is weaker than independence. Independent and identically distributed (i.i.d.) variables are always exchangeable, but exchangeable variables need not be independent. They can be dependent, as long as the dependence is symmetric with respect to order.
+
+Let me give you an intuition. Suppose you have an urn with some unknown proportion of red and blue balls. You draw balls one at a time without replacement. The draws are not independent (each draw changes the proportion in the urn), but they are exchangeable (the probability of any particular sequence of colors depends only on the counts, not the order).
+
+\begin{figure}[t]
+\centering
+\input{figures/ch02_bayesian_predictive/fig_2_4_exchangeability}
+\caption{Exchangeability and order sensitivity. (a) Ideal Bayesian predictions are invariant to permutations of the data; an order-sensitive model's predictions vary across orderings. (b) The \emph{exchangeability gap} quantifies this departure as variance across orderings.}
+\label{fig:exchangeability}
+\end{figure}
+
+\subsection{De Finetti's Representation Theorem}
+
+De Finetti proved a remarkable theorem about infinite exchangeable sequences. This is a foundational result in probability theory, and it deserves careful statement.
+
+\textbf{The theorem:} Let $X_1, X_2, X_3, \ldots$ be an \emph{infinite} exchangeable sequence of random variables. Then there exists a probability distribution $p(\theta)$ over some parameter space such that:
+\begin{equation}
+p(X_1, \ldots, X_n) = \int \left[\prod_{i=1}^{n} p(X_i \mid \theta)\right] p(\theta) \, d\theta
+\end{equation}
+
+\vspace{0.5em}
+\noindent\textit{Optional technical aside (skip on first read).} In full generality, if the $X_i$ take values in a ``nice'' sample space (technically: a Polish space, i.e., a complete separable metric space), then there exists a \emph{random probability measure} $\mu$ such that, conditional on $\mu$, the sequence $(X_i)$ is i.i.d.\ with law $\mu$. In special cases like binary sequences, this reduces to mixing over a scalar $\theta\in[0,1]$.
+
+
+
+In words: an infinite exchangeable sequence can be represented as arising from a mixture of i.i.d. processes, where the mixing distribution is over some latent parameter $\theta$.
+
+Several important points about this theorem:
+
+\textbf{The infinite sequence requirement is essential.} For finite sequences, the representation is only approximate. If you have exactly $n$ exchangeable random variables and no more, you cannot always represent them exactly as a mixture of i.i.d. processes. The approximation gets better as $n$ increases, but it is only exact in the limit.
+
+\textbf{The parameter space can be abstract.} For binary (0--1) sequences like coin flips, $\theta$ can be a single number (the probability of heads). For more general sequences taking values in a Polish space (a complete separable metric space, which includes most spaces you encounter in practice), $\theta$ can be an element of an abstract measure space. The theorem works as long as the sample space has appropriate mathematical structure.
+
+\textbf{The interpretation:} This theorem tells us that if you believe an infinite sequence is exchangeable (order does not matter), then you are implicitly assuming there is some underlying parameter that generates the data. Conditional on that parameter, the data points are independent. Exchangeability implies a Bayesian hierarchical structure, even if you never thought about parameters explicitly.
+
+\subsection{Why Order Should Not Matter in Theory}
+
+If examples are truly sampled from the same distribution and the sequence is infinite (or finite but large enough that the infinite case is a good approximation), then order should not matter. The first example is no more or less informative than the last example. Permuting the dataset should not change your posterior.
+
+This is the theoretical ideal. In practice, we work with finite datasets, and De Finetti's representation is only approximate. Moreover, we train models on data in a particular order (shuffled batches in stochastic gradient descent), and the order does affect the final model. But in expectation over orderings, the model should be approximately the same if data is truly exchangeable.
+
+This principle has practical implications:
+
+\begin{itemize}
+\item If your model's performance depends strongly on the order of training data, you are violating exchangeability. This suggests your training procedure is unstable or your data is not truly i.i.d.
+
+\item If you can improve performance by carefully ordering training data (curriculum learning), this means your optimization is not finding the global optimum. A perfect optimizer on exchangeable data would not benefit from ordering.
+
+\item If test performance depends on which examples appear earlier versus later in the test set, your evaluation is not capturing the true distribution.
+\end{itemize}
+
+\subsection{Transformers and the Exchangeability Gap}
+
+Transformers are sequence models, so they are (appropriately) sensitive to the order of \emph{tokens}. Word order is meaning. Positional encodings and causal masking are there precisely to make ``the first token'' different from ``the last token.''
+
+So what does exchangeability have to do with transformers? The key is to be clear about \emph{what you are permuting}. Exchangeability is a statement about the \emph{order of examples} (or, in a few-shot prompt, the order of demonstration \emph{example blocks}), not about shuffling tokens inside an example.
+
+If the demonstrations in a few-shot prompt are i.i.d.\ examples of the same input--output mapping, then in an ideal Bayesian learner the order of those demonstrations should not matter: you should get (approximately) the same posterior predictive regardless of which example comes first. In practice, transformers often show measurable sensitivity to this ordering. We call this departure the \emph{exchangeability gap}: variability in predictions across different permutations of the same demonstrations.
+
+In Chapter 6, we will revisit this exchangeability gap and explore its implications for evaluation and uncertainty, without committing to a specific scaling law.
+
+\vspace{1.5em}
+
+\begin{examplebox}
+\textbf{Exchangeability in few-shot learning}
+
+\vspace{0.5em}
+
+Suppose you give a language model a few-shot prompt with examples:
+
+\vspace{0.5em}
+
+\texttt{Translate English to French:}
+
+\texttt{dog -> chien}
+
+\texttt{cat -> chat}
+
+\texttt{bird -> oiseau}
+
+\texttt{fish -> ?}
+
+\vspace{0.5em}
+
+The model should predict "poisson". Now suppose you permute the examples:
+
+\vspace{0.5em}
+
+\texttt{Translate English to French:}
+
+\texttt{bird -> oiseau}
+
+\texttt{dog -> chien}
+
+\texttt{cat -> chat}
+
+\texttt{fish -> ?}
+
+\vspace{0.5em}
+
+In theory, if the examples are exchangeable, the model should give the same prediction. In practice, transformers are sensitive to order. The prediction might change slightly. This is the exchangeability gap.
+
+\vspace{0.5em}
+
+You can measure this gap empirically: shuffle the few-shot examples in different orders and measure the variance in predictions. High variance means high sensitivity to order, which means the model is not behaving like a Bayesian learner on exchangeable data. This variance quantifies how far the model is from the Bayesian ideal.
+\end{examplebox}
+
+\vspace{1.5em}
+
+\subsection{Exchangeability and Generalization}
+
+Exchangeability is closely related to generalization. If training data and test data are exchangeable (drawn from the same distribution), then a model that learns from training data should perform well on test data.
+
+But if the distributions differ (distribution shift, covariate shift, concept drift), then exchangeability is violated. The model might perform poorly on test data even if it performs well on training data.
+
+This is why evaluating on held-out test sets is so important. If test data is exchangeable with training data, then test performance is a valid estimate of expected performance on future data. If exchangeability is violated, test performance might be misleading.
+
+In Chapter 9, we will see how PAC-Bayes theory formalizes these ideas and gives us generalization bounds that depend on how much the test distribution differs from the training distribution, measured by KL divergence.
+
+\vspace{2em}
+
+%==========================
+\section{Empirical Bayes and Approximate Bayes in Deep Nets}
+
+\subsection{The Full Bayesian Ideal}
+
+Full Bayesian inference would maintain a posterior distribution over all parameters. For a deep neural network with millions or billions of parameters, this means a distribution in a very high-dimensional space.
+
+In principle, you would update this distribution as you see more data. You would integrate over it to make predictions. You would never commit to a single set of parameters.
+
+In practice, this is computationally intractable. The posterior over billions of parameters cannot be represented exactly or updated efficiently. So we use approximations.
+
+\subsection{What Is Empirical Bayes?}
+
+Empirical Bayes is a pragmatic middle ground between full Bayes and maximum likelihood. Instead of putting a prior over all parameters and integrating, you estimate some hyperparameters from the data and then do inference conditional on those hyperparameters.
+
+For example, in a Bayesian linear regression, you might have a prior $p(\theta \mid \sigma^2)$ where $\sigma^2$ is the noise variance. A full Bayesian approach would put a prior over $\sigma^2$ as well and integrate over it. An empirical Bayes approach would estimate $\sigma^2$ from the data (say, by maximum likelihood) and then do Bayesian inference on $\theta$ conditional on that estimate.
+
+Empirical Bayes is not fully Bayesian because it treats some quantities as fixed when they should be uncertain. But it is more Bayesian than maximum likelihood because it still integrates over some parameters.
+
+
+\vspace{0.5em}
+\begin{examplebox}
+\textbf{Empirical Bayes shrinkage in a random effects model}
+
+Suppose you observe group means $y_j\sim \mathcal{N}(\theta_j, \sigma^2/n_j)$ and a prior $\theta_j\sim \mathcal{N}(\mu, \tau^2)$. In Empirical Bayes you estimate $(\mu,\tau^2)$ from the aggregated data (e.g., marginal maximum likelihood), then compute the posterior of each $\theta_j$ conditional on these estimates. The resulting posterior means shrink noisy group estimates toward the global mean by a data-adaptive factor $\tau^2/(\tau^2+\sigma^2/n_j)$, which improves risk in high-variance, small-$n_j$ regimes.
+\end{examplebox}
+\subsection{Deep Learning and Bayesian Connections}
+
+Most deep learning can be interpreted through a Bayesian lens, though the connection is often loose. Here is what happens:
+
+Training a neural network by minimizing loss on training data is like finding a point estimate of parameters (maximum likelihood or MAP). But the learned parameters encode a conditional distribution over outputs given inputs. At test time, you sample from this conditional distribution (or use its mean or mode).
+
+This is Bayesian in the sense that you are integrating over the uncertainty in outputs given the learned parameters. But it is not fully Bayesian because you have collapsed the uncertainty in parameters to a point estimate.
+
+You can make this more Bayesian by using ensembles: train multiple networks with different initializations or different data splits, then average their predictions. The ensemble approximates integrating over a distribution of networks. Each network in the ensemble is like a sample from some implicit distribution over networks.
+
+But here is the key point: simple averaging over random initializations is \textbf{not} Bayesian inference. It is a frequentist procedure that happens to reduce variance. Let me explain why.
+
+\subsection{Why Uniform Averaging Is Not Bayesian}
+
+\textit{Crucially, the spaces differ.} Bayesian inference averages over \emph{parameters} weighted by the posterior: $p(\theta\mid D)\propto p(D\mid\theta)p(\theta)$. A simple ensemble averages over \emph{trained models} obtained from different random seeds, data orderings, or bootstrap resamples of the same architecture. These trained models are not draws from $p(\theta\mid D)$; they are artifacts of a stochastic optimization process. The similarity to Bayes is superficial---both involve averaging---but the objects and weights live in different spaces.
+
+Uniform averaging over seeds assigns each ensemble member weight $1/N$ for $N$ models. There is no explicit connection to posterior probability or marginal likelihood.
+
+If you want Bayesian model averaging behavior, you need a mechanism that (approximately) samples parameters from a posterior (or posterior-like approximation) and averages predictions over those draws. Simple ensembling is a useful heuristic, but it is not Bayesian inference.
+
+
+
+% Moved geometry lens box here to sit with VI discussion
+\begin{geometrylens}
+\textbf{I-Projection vs.\ M-Projection (Forward vs.\ Reverse KL)}
+
+\vspace{0.5em}
+
+Bayesian inference defines the posterior $p(\theta \mid D)$ exactly via Bayes' rule. Projection language becomes useful when we approximate this posterior with a simpler distribution $q(\theta)$ restricted to a tractable family.
+
+\vspace{0.5em}
+
+\noindent\textit{Recall.} $\text{KL}(p\|q)=\mathbb{E}_{p}\!\left[\log\frac{p}{q}\right]\ge 0$ measures how far $q$ is from $p$ in an information-theoretic sense.
+
+\vspace{0.5em}
+
+\noindent\textbf{Forward KL (I-projection):} minimize $\text{KL}(p(\theta \mid D) \| q(\theta))$. This tends to be \emph{mode-covering} (it penalizes missing mass), but it is usually harder because it requires expectations under the true posterior.
+
+\vspace{0.5em}
+
+\noindent\textbf{Reverse KL (M-projection):} minimize $\text{KL}(q(\theta) \| p(\theta \mid D))$. This is the objective used by standard variational inference. It is typically \emph{mode-seeking}: it can fit one mode well while ignoring others, leading to underestimated uncertainty.
+
+\vspace{0.5em}
+
+We will explore this geometry in detail in Chapter 3 when we study dual connections and information projections. For now, the key takeaway is that the direction of KL divergence matters profoundly. $\text{KL}(p \| q)$ and $\text{KL}(q \| p)$ lead to different optimization problems with different solutions and different failure modes.
+\end{geometrylens}
+
+\begin{figure}[t]
+\centering
+\input{figures/ch02_bayesian_predictive/fig_2_5_projections}
+\caption{I-projection ($\min_{q}\, \mathrm{KL}(p\|q)$) tends to spread probability to cover all modes (mode-covering), whereas M-projection ($\min_{q}\, \mathrm{KL}(q\|p)$) can lock onto a single mode (mode-seeking)---illustrating why the direction of KL matters in approximate inference.}
+\label{fig:projections}
+\end{figure}
+
+\subsection{Variational Inference and Dropout}
+
+There are methods that more genuinely approximate Bayesian inference in deep learning:
+
+\textbf{Variational inference} parameterizes the posterior as a tractable distribution (like a factorized Gaussian) and optimizes the parameters of that distribution to minimize KL divergence from the true posterior. This is the foundation of variational autoencoders (VAEs), which we will discuss in Chapter 8.
+
+The problem with variational inference is that it is mode-seeking: it minimizes $\text{KL}(q \| p)$, which forces $q$ to concentrate on a single mode of the posterior. If the true posterior has multiple modes representing distinct explanations of the data, variational inference picks one mode and concentrates all probability mass there, ignoring the multimodal uncertainty. This leads to overconfident posteriors that underestimate uncertainty.
+
+\textbf{Dropout as Bayesian approximation:} Yarin Gal and Zoubin Ghahramani showed that dropout can be interpreted as approximate Bayesian inference. When you apply dropout at test time and run multiple forward passes, you are effectively sampling from an approximate posterior over networks. Averaging these samples gives you a posterior predictive distribution.
+
+\textbf{Stochastic Weight Averaging (SWA):} Instead of using the final parameters from training, you average the parameters from the last several epochs. This approximates integrating over a local region of parameter space, which is a crude form of posterior averaging.
+
+All of these techniques move toward more Bayesian behavior. They are not full Bayes, but they are more Bayesian than standard maximum likelihood training.
+
+\subsection{When Does Approximate Bayes Fail?}
+
+Approximate Bayesian methods can fail in several ways:
+
+\begin{itemize}
+\item \textbf{Posterior collapse in VAEs:} The approximate posterior sometimes collapses to the prior, ignoring the data. This happens when the KL term in the ELBO dominates the reconstruction term. The model learns to ignore the latent variable, making it useless for generation or representation learning.
+
+\item \textbf{Underestimation of uncertainty:} Approximations like dropout or ensembles often underestimate uncertainty, especially out of distribution. They give you some uncertainty quantification, but not enough. On inputs far from training data, these methods can still be confidently wrong.
+
+\item \textbf{Mode-seeking in variational inference:} As mentioned, variational inference finds a single mode and ignores others. This can miss important regions of parameter space that explain the data differently.
+
+\item \textbf{Computational cost:} Even approximate Bayesian methods are more expensive than point estimates. Ensembles require multiple models. Variational inference requires more complex optimization. Dropout requires multiple forward passes.
+\end{itemize}
+
+Despite these limitations, approximate Bayesian methods often give better calibration and more honest uncertainty quantification than pure point estimates. They are a valuable tool, especially in high-stakes applications where knowing when you do not know is critical.
+
+\vspace{2em}
+
+%==========================
+\section{Selective Prediction and Decision Risk}
+
+\subsection{The Option to Abstain}
+
+In many applications, you have the option to abstain from making a prediction. A medical diagnosis system can say "I am not confident, please consult a specialist." A fraud detection system can flag transactions as uncertain and send them for manual review.
+
+Selective prediction formalizes this idea. You make predictions only when you are confident, and you abstain otherwise. The goal is to trade coverage (the fraction of examples you make predictions on) for accuracy (the accuracy on the examples where you do predict).
+
+This is closely related to the Bayesian framework. Your confidence should be based on your posterior predictive distribution. If the distribution is very peaked (you are confident), predict. If it is very spread out (you are uncertain), abstain.
+
+\subsection{The Coverage Accuracy Tradeoff}
+
+Let us formalize this. Suppose you have a confidence threshold $\tau$. You predict only when your confidence (the maximum posterior predictive probability) exceeds $\tau$. Otherwise you abstain. (Here $p(y\mid x,D)$ is the posterior predictive, and we write $p(y\mid x)$ as shorthand when $D$ is understood.)
+
+\begin{itemize}
+\item \textbf{Coverage} is the fraction of examples where you predict: $\text{coverage}(\tau) = P(\max_y p(y \mid x, D) \geq \tau)$
+
+\item \textbf{Accuracy} is the accuracy on examples where you predict: $\text{accuracy}(\tau) = P(\hat{y} = y \mid \max_y p(y \mid x, D) \geq \tau)$
+\end{itemize}
+
+\noindent Here $P(\cdot)$ is the probability over random test cases $(x,y)$ drawn from the deployment distribution (or whatever distribution you care about). In practice you estimate these quantities by frequencies on a held-out test set.
+
+As you increase $\tau$, coverage decreases (you abstain more often) but accuracy increases (you only predict when very confident). There is a fundamental tradeoff.
+
+\begin{figure}[t]
+\centering
+\input{figures/ch02_bayesian_predictive/fig_2_6_coverage_accuracy}
+\caption{Raising the confidence threshold trades coverage for accuracy on predicted examples (i.e., precision when you predict), and selective prediction operates along this frontier to match application costs, with operating points annotated.}
+\label{fig:coverage_accuracy}
+\end{figure}
+
+
+The optimal threshold depends on the costs of errors versus the costs of abstaining. If errors are very costly and abstaining is cheap (medical diagnosis), you should use a high threshold. If errors are acceptable and abstaining is costly (real-time translation), you should use a low threshold.
+
+\vspace{1.5em}
+
+\begin{examplebox}
+\textbf{Selective prediction for medical diagnosis}
+
+
+\emph{Recall.} We used a diagnosis scenario in Chapter~1 to illustrate decision making under uncertainty; here we revisit it with the option to abstain.
+\vspace{0.5em}
+
+Suppose you have a model that predicts whether a patient has a disease. On all examples, the model achieves 85\% accuracy. But you notice that on examples where the model's confidence (max probability) is above 0.9, the accuracy is 95\%. On examples where confidence is below 0.9, the accuracy is only 75\%.
+
+\vspace{0.5em}
+
+You can construct a selective predictor:
+
+\begin{itemize}
+\item If confidence $\geq 0.9$, predict (this covers 60\% of examples with 95\% accuracy)
+\item If confidence $< 0.9$, abstain and send to a human specialist (this covers 40\% of examples)
+\end{itemize}
+
+\vspace{0.5em}
+
+The result is that 60\% of cases are handled automatically with 95\% accuracy, and 40\% are sent to specialists. This is better than handling all cases automatically with 85\% accuracy.
+
+\vspace{0.5em}
+
+The key question is: what is the value of this tradeoff? If specialists cost \$200 per case and errors cost \$10,000 per case (in expected harm), then:
+
+\vspace{0.5em}
+
+\textbf{Without selective prediction:}
+
+Cost = $1.0 \times (0.15 \times 10000) = 1500$ dollars per case on average.
+
+\vspace{0.5em}
+
+\textbf{With selective prediction:}
+
+Cost = $0.6 \times (0.05 \times 10000) + 0.4 \times 200 = 300 + 80 = 380$ dollars per case on average.
+
+\vspace{0.5em}
+
+Selective prediction reduces cost by over 70\%. This is the power of knowing when to abstain.
+
+\vspace{0.5em}
+
+\textbf{Note:} This example makes simplifying assumptions: specialists are assumed 100\% accurate, costs are linear, and we ignore factors like specialist availability and capacity constraints. Real cost-benefit analysis would need to account for these complexities.
+\end{examplebox}
+
+\vspace{1.5em}
+
+\subsection{Calibration and Selective Prediction}
+
+Selective prediction works best when your model is well calibrated. Calibration means that when the model says it is 90\% confident, it is actually correct 90\% of the time.
+
+If your model is poorly calibrated (overconfident or underconfident), then using confidence as a threshold for selective prediction will not work well. An overconfident model will predict on too many examples and make errors. An underconfident model will abstain too often and waste resources.
+
+We will discuss calibration in detail in Chapter 13. For now, the key point is that under the assumed model (well-specified likelihood, correct prior, and correct inference), Bayesian posterior predictives are calibrated in theory. Under misspecification or approximate inference, calibration is not guaranteed---which is exactly why empirical calibration checks matter.
+
+\subsection{Decision Risk Framework}
+
+Let us formalize the decision to abstain using a loss function. Suppose you have three possible decisions:
+
+\begin{itemize}
+\item Predict class 1
+\item Predict class 0
+\item Abstain
+\end{itemize}
+
+\noindent\emph{Note.} To avoid repetition, we rely on the definitions of loss, risk, and proper scoring rules introduced earlier (see the subsections on decision making under loss and on log loss). Here we apply them to abstention.
+
+The loss function might be:
+
+\begin{itemize}
+\item $L(\text{predict 1}, y=1) = 0$ (correct prediction, no cost)
+\item $L(\text{predict 1}, y=0) = c_e$ (error, high cost)
+\item $L(\text{predict 0}, y=0) = 0$ (correct prediction, no cost)
+\item $L(\text{predict 0}, y=1) = c_e$ (error, high cost)
+\item $L(\text{abstain}, y) = c_a$ (abstain, moderate cost, regardless of true $y$)
+\end{itemize}
+
+The Bayesian decision rule is to compute expected loss for each decision and choose the one with minimum expected loss:
+
+\begin{align}
+\mathbb{E}[L(\text{predict 1})] &= (1 - p(y=1 \mid x, D)) \cdot c_e \\
+\mathbb{E}[L(\text{predict 0})] &= p(y=1 \mid x, D) \cdot c_e \\
+\mathbb{E}[L(\text{abstain})] &= c_a
+\end{align}
+
+You should predict if both $\mathbb{E}[L(\text{predict 1})]$ and $\mathbb{E}[L(\text{predict 0})]$ are less than $c_a$. Otherwise, abstain.
+
+This is equivalent to checking if $\min(p(y=1 \mid x, D), p(y=0 \mid x, D)) \cdot c_e < c_a$, which simplifies to checking if the maximum posterior probability exceeds $1 - c_a / c_e$.
+
+So the optimal threshold is directly related to the ratio of costs. If abstaining is cheap relative to errors ($c_a / c_e$ is small), you should have a high threshold (abstain often). If errors are cheap relative to abstaining ($c_a / c_e$ is large), you should have a low threshold (predict often).
+
+\paragraph{Conformal prediction (preview).} Conformal methods provide \emph{distribution-free} coverage guarantees under exchangeability. For classification and regression, split conformal prediction yields sets/intervals with marginal coverage $1-\alpha$ without modeling assumptions. We will develop conformal prediction in detail for generative outputs in Chapter~13; here it serves as a principled complement to selective prediction when guarantees are required.
+
+\subsection{Selective Prediction and Information Budgets}
+
+Selective prediction connects to the information budget framework from Chapter 1. Each abstention means you need to acquire more information (by consulting a specialist, running more tests, or waiting for more data). This information acquisition has a cost.
+
+The question is: when is it worth paying the cost to acquire more information versus making a prediction with current information?
+
+The answer depends on the expected value of information. If acquiring more information would reduce your expected loss by more than the cost of acquisition, you should acquire it (i.e., abstain and seek more information). Otherwise, you should predict with current information.
+
+This is decision theory and information theory combined. You are trading bits for utility. The more bits you acquire (more information), the better your decisions, but the higher your cost. The optimal strategy balances these considerations.
+
+\vspace{2em}
+
+%==========================
+\section{When Bayesian Inference Breaks: The Hard Truths}
+
+\subsection{The Reality of Model Misspecification}
+
+The Bayesian framework assumes your model family contains the true distribution. You have some prior $p(\theta)$ over parameters, and the true distribution $p^*$ equals $p(\cdot \mid \theta^*)$ for some value $\theta^*$ in your parameter space.
+
+This assumption is almost never true in practice. Your model family is finite dimensional. Reality is infinitely complex. Your model is always misspecified.
+
+Real data comes from complex processes that your model cannot fully capture. A neural network, no matter how large, cannot represent the true distribution of natural images or language. A polynomial cannot represent a sine function exactly. A linear model cannot capture nonlinear relationships perfectly.
+
+\textbf{What happens when your model is misspecified?}
+
+The posterior does not converge to the truth. Instead, it converges to the best approximation within your model family. This best approximation is the distribution that minimizes KL divergence from the truth to the model:
+\begin{equation}
+\theta^\dagger = \arg\min_{\theta} \text{KL}(p^{*} \| p(\cdot \mid \theta))
+\end{equation}
+
+\noindent Here $\text{KL}(p\|q)=\mathbb{E}_{p}\!\left[\log\frac{p}{q}\right]\ge 0$ is the Kullback--Leibler divergence. We reserve $\theta^*$ for the well-specified ``true parameter'' case; under misspecification, $\theta^\dagger$ is the \emph{pseudo-true} parameter (the best in-family approximation).
+
+Finding the best approximation is still useful! But you need to understand the implications:
+
+\begin{enumerate}
+\item \textbf{Posterior uncertainty underestimates true uncertainty.} The posterior only reflects parameter uncertainty within the model family, not model uncertainty (the uncertainty about whether the model family is correct). Your confidence intervals will be too narrow. Your credible regions will not have correct coverage.
+
+\item \textbf{The posterior can be confidently wrong.} If your model family is far from the truth, the posterior might concentrate on a bad approximation with high confidence. More data makes you more confident about the wrong answer.
+
+\item \textbf{Different model families give different answers.} If you use a linear model and I use a neural network, our posteriors will concentrate on different approximations, even with the same data. There is no unique "right" answer when models are misspecified.
+\end{enumerate}
+
+\vspace{1.5em}
+
+\begin{examplebox}
+\textbf{Misspecification in polynomial regression}
+
+\vspace{0.5em}
+
+Suppose the true relationship is $y = \sin(x) + \epsilon$ where $\epsilon$ is noise. You collect data and fit a polynomial model $y = \sum_{i=0}^{k} \theta_i x^i + \epsilon$.
+
+\vspace{0.5em}
+
+\textbf{If $k=3$ (cubic polynomial):}
+
+Your model family cannot represent $\sin(x)$ exactly. The posterior will concentrate on the cubic polynomial that best approximates the sine function within the range of your data. If you measure uncertainty via the posterior, your credible intervals will be too narrow because they only reflect parameter uncertainty, not the systematic bias from using a cubic to approximate a sine.
+
+Worse, if you extrapolate outside the data range, the cubic will diverge wildly while your posterior credible intervals will be confidently wrong. You have high certainty about nonsense.
+
+\vspace{0.5em}
+
+\textbf{If $k=10$ (degree 10 polynomial):}
+
+You have more flexibility. The approximation is better within the data range. But the model is still misspecified: it cannot capture the periodic nature of sine. And it will oscillate wildly between data points if you try to interpolate.
+
+\vspace{0.5em}
+
+\textbf{If $k=100$ (degree 100 polynomial):}
+
+Now you can fit the training data almost perfectly. But you are overfitting to noise. The posterior will be very confident about a wildly oscillating polynomial that happens to pass through the training points. This is worse than the cubic: you have traded bias for variance, and misspecification interacts badly with high capacity.
+
+\vspace{0.5em}
+
+The key insight: there is a sweet spot in model complexity. Too simple and you underfit (misspecification error dominates). Too complex and you overfit (variance dominates). Bayesian inference does not automatically find this sweet spot when the model is misspecified. You need empirical validation, not just posterior inference.
+\end{examplebox}
+
+\begin{figure}[t]
+\centering
+\input{figures/ch02_bayesian_predictive/fig_2_7_misspecification}
+\caption{Misspecified models can be confidently wrong---underfit, better fit, and overfit polynomials against a sinusoid illustrate how posterior mass concentrates on in-family approximations while extrapolation can go wildly astray.}
+\label{fig:misspecification}
+\end{figure}
+
+\vspace{1.5em}
+
+\textbf{What should you do about misspecification?}
+
+Misspecification is unavoidable. The question is not whether your model is wrong, but how wrong it is and whether it is wrong in ways that matter for your application. Here are practical approaches:
+
+\begin{itemize}
+\item \textbf{Empirical validation on held-out data:} Do not trust the posterior alone. Always validate on test data that the model has never seen. If test performance is much worse than what the posterior predicts, you have severe misspecification.
+
+\item \textbf{Robustness checks for distribution shift:} Test your model on data from slightly different distributions. If performance degrades rapidly, your model is capturing spurious correlations rather than true structure.
+
+\item \textbf{Multiple model families and comparison:} Try different model families (linear, polynomial, neural network, trees). If they give very different answers, you have high model uncertainty that the posterior does not capture.
+
+\item \textbf{Awareness that posterior uncertainty is not true uncertainty:} When you report uncertainty, be clear that it is conditional on the model family. The true uncertainty is larger, often much larger.
+\end{itemize}
+
+This is why Bayesian inference alone is not sufficient for reliable systems. You need Bayesian thinking (reason about uncertainty, integrate rather than picking point estimates) combined with empirical validation (test on held-out data, check calibration, measure real world performance).
+
+\subsection{Improper Priors: When Can You Get Away With It?}
+
+An improper prior is one that does not integrate to 1. For example, the uniform prior $p(\theta) = c$ for all $\theta \in \mathbb{R}$ is improper because $\int_{-\infty}^{\infty} c \, d\theta = \infty$.
+
+Why would anyone use an improper prior? Because sometimes you want to be "noninformative" and treat all parameter values as equally plausible, even when the parameter space is infinite. Improper priors are a mathematical convenience: they let you avoid specifying arbitrary bounds.
+
+The surprising fact is that improper priors often work fine. If the likelihood $p(D \mid \theta)$ decreases fast enough as $|\theta| \to \infty$, then the posterior:
+\begin{equation}
+p(\theta \mid D) \propto p(D \mid \theta) p(\theta)
+\end{equation}
+will be a proper distribution, even if the prior is improper. The likelihood concentrates the probability mass, making the posterior normalizable.
+
+\textbf{When do improper priors work?}
+
+For Gaussian likelihood with unknown mean, a uniform prior $p(\mu) = \text{const}$ is improper, but the posterior is a proper Gaussian. The Gaussian likelihood decays exponentially in $|\mu|$, which overwhelms the constant prior and makes the posterior normalizable.
+
+The Jeffreys prior, defined as $p(\theta) \propto \sqrt{\det I(\theta)}$ where $I(\theta)$ is the Fisher information matrix, is often improper but has nice invariance properties. It is the prior that looks the same under reparameterization. In many regular models it yields proper posteriors once you have enough data, but it is not guaranteed---always check posterior propriety.
+
+\textbf{When do improper priors fail?}
+
+Improper priors fail when the posterior is also improper. This can happen when:
+
+\begin{itemize}
+\item You have very little data (fewer data points than parameters). The likelihood does not constrain the parameters enough to make the posterior normalizable.
+
+\item The likelihood is too flat in some direction of parameter space, so the posterior cannot be normalized. For example, in a Gaussian model with unknown variance, an improper prior like $p(\sigma^2)\propto 1$ yields a proper posterior only once you have enough observations; with too little data it can be improper.
+
+\item The model is misspecified in a way that makes certain parameters unidentifiable. The likelihood is flat in some directions of parameter space, so even an infinite amount of data cannot nail down those parameters.
+\end{itemize}
+
+When the posterior is improper, you cannot make predictions because you cannot compute the posterior predictive. The integral $\int p(x_{\text{new}} \mid \theta) p(\theta \mid D) \, d\theta$ diverges.
+
+\textbf{In practice:} Improper priors are a convenience, not a principled choice. They say "I do not want to commit to a prior." But you still need to verify the posterior is proper and behaves sensibly. Always check that your posterior integrates to 1 (or at least that your MCMC or variational inference converges to something reasonable). Improper priors are useful but require care.
+
+
+
+\vspace{0.5em}
+\noindent\textit{Modern deep learning caveat.} In contemporary deep nets we almost never posit explicit priors at all. Training with SGD plus regularization is sometimes interpreted post hoc as MAP under an implicit prior, but that prior is neither specified nor checked for propriety. Thus, the usual proper/improper distinctions rarely guide design; when we invoke a Bayesian lens for deep learning, it is primarily interpretive rather than prescriptive.
+
+
+\subsection{Posterior Consistency: When Does the Posterior Find Truth?}
+
+Under the well-specified case (truth is in the model family), there are posterior consistency theorems showing that the posterior can concentrate near the data-generating parameter as the amount of data grows. One classical (and subtle) result is Doob's theorem: for a fixed prior, posterior consistency holds for almost every parameter value (with respect to that prior).
+
+More precisely, for any neighborhood around the true parameter $\theta^*$:
+\begin{equation}
+p(\theta \in \text{neighborhood of } \theta^* \mid D_1, \ldots, D_n) \to 1 \text{ as } n \to \infty
+\end{equation}
+
+This holds with probability 1 over the random draw of data from the true distribution, under the theorem's conditions. It is not a blanket guarantee for every prior and every parameter: the prior must put positive mass in suitable neighborhoods of $\theta^*$, and additional regularity conditions are needed.
+
+But this theorem requires strong conditions:
+
+\begin{enumerate}
+\item \textbf{The model must be well specified and identifiable} (truth is in the model family, and different $\theta$ imply different distributions)
+\item \textbf{The prior must put mass near the truth} (e.g., nonzero mass in neighborhoods or KL-neighborhoods of $\theta^*$)
+\item \textbf{The data must be i.i.d. from the true distribution}
+\item \textbf{Regularity conditions must hold} (measurability/separability and appropriate tail conditions in noncompact spaces)
+\end{enumerate}
+
+\begin{figure}[t]
+\centering
+\input{figures/ch02_bayesian_predictive/fig_2_8_posterior_concentration}
+\caption{Posterior concentration with more data: prior and posteriors for $n\in\{10,50,200\}$ concentrate around the true parameter ($\theta=0.65$, dotted line), shrinking uncertainty as $n$ grows.}
+\label{fig:posterior_concentration}
+\end{figure}
+
+\textbf{When does posterior consistency fail?}
+
+\begin{itemize}
+\item \textbf{Under misspecification:} As discussed above, the posterior concentrates on the best approximation within the model family, not the truth. This is still useful, but it is not what the theorem promises.
+
+\item \textbf{With wrong prior support:} If the prior assigns zero probability to the truth (or neighborhoods of the truth), the posterior can never concentrate there. This is why prior choice matters for finite data, even though it "washes out" asymptotically if chosen correctly.
+
+\item \textbf{Under distribution shift:} If test data comes from a different distribution than training data, the posterior can be confidently wrong. Posterior consistency requires that future data comes from the same distribution as past data. If the world changes, your posterior is useless.
+
+\item \textbf{With unidentifiable parameters:} If multiple parameter values give the same likelihood, the posterior cannot distinguish them. It will spread probability over the unidentifiable set rather than concentrating on a point.
+\end{itemize}
+
+\textbf{Practical implication:} Posterior consistency is a beautiful theoretical result, but it is an asymptotic statement (as $n \to \infty$). In practice, you have finite data, your model is misspecified, and the world shifts over time. Do not rely on consistency theorems. Validate empirically.
+
+\subsection{Why Exact Bayesian Inference Is Intractable}
+
+We have mentioned that full Bayesian inference is computationally intractable for large models. Let me make this precise and explain why it matters.
+
+Computing the posterior $p(\theta \mid D)$ requires computing the marginal likelihood:
+\begin{equation}
+p(D) = \int p(D \mid \theta) p(\theta) \, d\theta
+\end{equation}
+
+This integral is over the entire parameter space. For a neural network with billions of parameters, this is an integral over a billion-dimensional space. We cannot evaluate it exactly, and generic methods that work well in low dimensions break down quickly.
+
+\textbf{Why is this integral so hard?}
+
+\begin{enumerate}
+\item \textbf{Dimensionality:} Naive quadrature scales exponentially with dimension. Even if you discretize each dimension into just 10 grid points, you have $10^{\text{billions}}$ evaluations, which is more than atoms in the universe.
+
+\item \textbf{Multimodality:} The posterior may have exponentially many modes. Finding and evaluating all of them is intractable. Even MCMC, which in principle samples from the posterior, can get stuck in local modes and take exponentially long to mix.
+
+\item \textbf{Partition function:} Computing $p(D)$ is an evidence/partition-function computation, which is \#P-hard in the worst case for many model families. This makes a general, efficient exact algorithm unlikely; practical methods rely on approximation and problem structure.
+\end{enumerate}
+
+\vspace{1.5em}
+
+\begin{examplebox}
+\textbf{Intractability in a simple mixture model}
+
+\vspace{0.5em}
+
+Consider a Gaussian mixture model with $K$ components. Each data point is assigned to one of the $K$ components. If you have $n$ data points, there are $K^n$ possible assignments.
+
+\vspace{0.5em}
+
+To compute the marginal likelihood, you need to sum over all possible assignments:
+\begin{equation*}
+p(D) = \sum_{z_1=1}^{K} \cdots \sum_{z_n=1}^{K} p(D, z_1, \ldots, z_n)
+\end{equation*}
+
+This is $K^n$ terms. For $K=10$ and $n=100$, this is $10^{100}$ terms, which is more than the number of atoms in the universe. You cannot compute this exactly.
+
+\vspace{0.5em}
+
+The EM algorithm gets around this by approximating: instead of summing over all assignments, it iteratively updates soft assignments (responsibilities) and parameters. This is not exact Bayesian inference, but it is tractable.
+
+\vspace{0.5em}
+
+For neural networks, the situation is even worse because the parameter space is continuous and high-dimensional. There is no hope of exact inference. You must use approximations.
+\end{examplebox}
+
+\vspace{1.5em}
+
+\textbf{What approximations do we use, and what do they sacrifice?}
+
+Since exact inference is intractable, we must approximate. Each approximation makes different tradeoffs:
+
+\begin{itemize}
+\item \textbf{MCMC (Markov Chain Monte Carlo):} In principle, MCMC samples from the true posterior. In practice, it can get stuck in local modes and take exponentially long to converge in high dimensions. For neural networks with millions of parameters, MCMC is often impractical.
+
+\item \textbf{Variational inference:} Parameterize the posterior as a tractable distribution (like a factorized Gaussian) and minimize $\text{KL}(q \| p)$. This is mode-seeking: it finds a single mode and ignores others. If the posterior is multimodal, variational inference misses important regions. The approximation is biased (it systematically underestimates uncertainty).
+
+\item \textbf{Laplace approximation:} Fit a Gaussian around the MAP estimate. This works if the posterior is approximately Gaussian, but fails badly if the posterior is skewed, heavy tailed, or multimodal. It is fast but often wildly inaccurate.
+
+\item \textbf{Ensembles:} Train multiple models with different random seeds and average their predictions. This is practical and works well empirically, but it is not theoretically justified as Bayesian inference. The relationship to a posterior distribution is unclear at best.
+\end{itemize}
+
+Each approximation has costs. MCMC is slow. Variational inference is biased. Laplace is inaccurate. Ensembles are atheoretical. There is no free lunch.
+
+\subsection{The Pragmatic View}
+
+So where does this leave us? Bayesian inference is theoretically beautiful but practically limited:
+
+\begin{enumerate}
+\item Models are typically misspecified, so consistency theorems may not apply directly
+\item Exact inference is intractable, so we must use approximations
+\item Approximations can fail in various ways (mode collapse, slow mixing, underestimated uncertainty)
+\item Despite all this, Bayesian thinking is still useful
+\end{enumerate}
+
+The pragmatic view is to use Bayesian ideas as a guide, not a dogma:
+
+\begin{itemize}
+\item Think about uncertainty, even if you cannot quantify it perfectly
+\item Use approximations (ensembles, variational inference, dropout) to get some uncertainty estimates
+\item Be aware that your model is misspecified and your uncertainty is underestimated
+\item Validate on held-out data and check calibration empirically
+\item Use selective prediction to abstain when uncertainty is high
+\end{itemize}
+
+This is the "approximate Bayes" philosophy common in modern machine learning. We use Bayesian ideas where they help, we approximate where we must, and we validate empirically to catch failures. Bayesian inference is a useful framework for thinking about uncertainty, but it is not a silver bullet. Understanding both its strengths and its limitations is essential for building reliable systems.
+
+\vspace{2em}
+
+%==========================
+
+
+
+\vspace{2em}
+
+%==========================
+
+\begin{pausebox}
+\textbf{Quick pause: three prompts}
+
+\begin{itemize}
+\item In one paragraph, explain why posterior predictive averaging differs from model ensembling.
+\item Sketch a posterior predictive check you would run for a simple model (what statistic, what discrepancy?).
+\item Name a decision problem where abstention is critical and state the cost-based thresholding rule you would use.
+\end{itemize}
+
+If any of these are fuzzy, revisit the relevant subsections.
+\end{pausebox}
+
+\vspace{1em}
+
+This chapter introduced the Bayesian framework for prediction under uncertainty. We learned about posterior and posterior predictive distributions, and how to make decisions under loss functions. We explored exchangeability and De Finetti's theorem, which explain why an infinite exchangeable sequence can be represented as a mixture of i.i.d.\ processes---and why, under an exchangeability (or i.i.d.) assumption, the order of data should not matter. We saw how modern deep learning relates to Bayesian inference through various approximations, though simple ensemble averaging is not Bayesian. We discussed selective prediction: when to abstain from making a prediction because uncertainty is too high.
+
+Crucially, we confronted limitations that make Bayesian inference challenging in practice: models are typically misspecified (so the posterior concentrates on an in-family approximation), exact inference can be computationally intractable in high dimensions (and is \#P-hard in the worst case for many model families), improper priors can lead to improper posteriors, and approximations have fundamental failure modes (mode-seeking behavior in variational inference, slow mixing in MCMC, and the weak theoretical link between standard ensembles and Bayesian averaging). Understanding these limitations is as important as understanding the theory. The Bayesian framework gives us a principled way to think about uncertainty, but we must be pragmatic about how we use it: combine Bayesian thinking with empirical validation, be aware that uncertainty estimates are often underestimated, and validate on held-out data rather than trusting the posterior alone.
+
+In the next chapter, we will dive into the geometry of probability distributions. We will understand KL divergence, Fisher information, and the Riemannian structure of statistical manifolds. This geometric perspective will deepen our understanding of learning, optimization, and the flow of information through models. The Bayesian and information-theoretic foundations we have built will guide us through these beautiful mathematical structures.

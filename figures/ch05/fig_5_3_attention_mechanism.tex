@@ -1,0 +1,93 @@
+\usetikzlibrary{calc,fit,patterns}
+\begin{tikzpicture}[x=1cm,y=1cm, font=\small, line cap=round, line join=round]
+  \definecolor{Ink}{HTML}{2F2A26}
+  \definecolor{Panel}{HTML}{FBF6ED}
+  \definecolor{WarmBlue}{HTML}{3D6E8E}
+  \definecolor{WarmTeal}{HTML}{4E8C85}
+  \definecolor{WarmOrange}{HTML}{E18B2E}
+  \definecolor{WarmRed}{HTML}{C95E4E}
+  \definecolor{WarmGray}{HTML}{B9B1A8}
+
+  \def\rowh{0.7}
+  \def\cell{0.7}
+  \def\trow{3}
+
+  \tikzset{
+    panel/.style={rounded corners=6pt, draw=Ink!35, line width=0.6pt},
+    token/.style={rounded corners=2pt, draw=Ink, line width=0.6pt, fill=WarmBlue!15,
+      minimum width=1.0cm, minimum height=0.5cm, align=center},
+    blockQ/.style={rounded corners=2pt, draw=Ink, line width=0.6pt, fill=WarmBlue!20,
+      minimum width=0.9cm, minimum height=3.5cm, align=center},
+    blockK/.style={rounded corners=2pt, draw=Ink, line width=0.6pt, fill=WarmOrange!20,
+      minimum width=0.9cm, minimum height=3.5cm, align=center},
+    blockV/.style={rounded corners=2pt, draw=Ink, line width=0.6pt, fill=WarmTeal!20,
+      minimum width=0.9cm, minimum height=3.5cm, align=center},
+    output/.style={rounded corners=2pt, draw=Ink, line width=0.6pt, fill=WarmTeal!15,
+      minimum width=1.1cm, minimum height=0.6cm, align=center},
+    arrow/.style={-Latex, line width=0.8pt, draw=Ink},
+    note/.style={font=\footnotesize, text=Ink},
+    allowcell/.style={fill=WarmBlue!16, draw=Ink!40, line width=0.2pt},
+    maskcell/.style={fill=WarmGray!18, draw=Ink!35, line width=0.2pt, pattern=north east lines, pattern color=WarmGray!60}
+  }
+
+  \path[panel, shade, top color=Panel, bottom color=Panel!80] (-0.8,0.8) rectangle (13.0,-4.4);
+
+  % Input tokens
+  \node[note, anchor=west] at (-0.45,0.55) {Input sequence $\mathbf{X}$};
+  \foreach \i [count=\k from 0] in {1,2,3,4,5} {
+    \node[token] (x\i) at (0,-\k*\rowh) {$x_{\i}$};
+  }
+  \node[draw=WarmOrange, line width=0.9pt, rounded corners=2pt, fit=(x4), inner sep=0.18cm, yshift=0.05cm] {};
+  \node[note, text=WarmOrange, anchor=east] at (-0.65,-2.1) {query at $t=4$};
+
+  % Q K V blocks
+  \node[blockQ] (Q) at (2.4,-1.4) {\textbf{Q}};
+  \node[blockK] (K) at (3.9,-1.4) {\textbf{K}};
+  \node[blockV] (V) at (5.4,-1.4) {\textbf{V}};
+  \foreach \i in {1,...,4} {
+    \draw[Ink!35, line width=0.3pt] ($(Q.north west)+(0,-\i*\rowh)$) -- ($(Q.north east)+(0,-\i*\rowh)$);
+    \draw[Ink!35, line width=0.3pt] ($(K.north west)+(0,-\i*\rowh)$) -- ($(K.north east)+(0,-\i*\rowh)$);
+    \draw[Ink!35, line width=0.3pt] ($(V.north west)+(0,-\i*\rowh)$) -- ($(V.north east)+(0,-\i*\rowh)$);
+  }
+  \draw[WarmOrange, line width=0.9pt] ($(Q.north west)+(0,-3*\rowh)$) rectangle ($(Q.north east)+(0,-4*\rowh)$);
+
+  \draw[arrow] (x3.east) -- ++(0.5,0) |- (Q.west);
+  \draw[arrow] (x3.east) -- ++(0.5,0) |- (K.west);
+  \draw[arrow] (x3.east) -- ++(0.5,0) |- (V.west);
+
+  % Attention matrix with causal mask
+  \coordinate (matNW) at (6.6,0.2);
+  \begin{scope}[shift={(6.6,0.2)}]
+    \pgfmathsetmacro{\rowtop}{\trow*\cell}
+    \pgfmathsetmacro{\rowbot}{(\trow+1)*\cell}
+    \foreach \r in {0,...,4} {
+      \foreach \c in {0,...,4} {
+        \ifnum\c>\r
+          \fill[maskcell] (\c*\cell,-\r*\cell) rectangle ++(\cell,-\cell);
+        \else
+          \fill[allowcell] (\c*\cell,-\r*\cell) rectangle ++(\cell,-\cell);
+        \fi
+        \draw[Ink!40, line width=0.2pt] (\c*\cell,-\r*\cell) rectangle ++(\cell,-\cell);
+      }
+    }
+    \fill[WarmOrange!30, opacity=0.6] (0,-\rowtop) rectangle (5*\cell,-\rowbot);
+    \draw[WarmOrange, line width=0.9pt] (0,-\rowtop) rectangle (5*\cell,-\rowbot);
+    \draw[Ink!60, line width=0.4pt] (0,0) -- (5*\cell,-5*\cell);
+  \end{scope}
+  \node[note, anchor=west] at (6.6,0.55) {Scores + causal mask -> weights $\alpha$};
+  \pgfmathsetmacro{\rowy}{\cell*(\trow+0.5)}
+  \coordinate (matRow) at ($(matNW)+(0,-\rowy)$);
+  \node[note, text=WarmOrange, anchor=east] at ($(matRow)+(-0.2,0)$) {$q_t$};
+
+  % Output
+  \node[output] (out) at (11.9,-1.4) {$z_t$};
+  \draw[arrow] ($(matNW)+(5*\cell,{-2*\cell})$) -- ++(0.2,-0.35) -- ++(1.4,0) -- ($(out.west)+(0,0.15)$);
+  \coordinate (mix1) at (6.3,-3.0);
+  \coordinate (mix2) at (10.8,-3.0);
+  \draw[arrow] (V.east) -- (mix1) -- (mix2) -- (out.south west);
+  \node[note] at (11.9,-2.55) {$z_t=\sum_{i\le t} \alpha_{ti} v_i$};
+
+  % Mask legend
+  \node[maskcell, minimum width=0.35cm, minimum height=0.35cm] at (7.5,-3.75) {};
+  \node[note, anchor=west] at (7.85,-3.75) {future blocked};
+\end{tikzpicture}

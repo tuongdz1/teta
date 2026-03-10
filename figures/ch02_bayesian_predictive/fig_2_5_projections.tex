@@ -1,0 +1,50 @@
+\begin{tikzpicture}
+\begin{groupplot}[
+  group style={group size=2 by 1, horizontal sep=1.6cm},
+  width=0.48\linewidth,
+  height=0.48\linewidth
+]
+  \nextgroupplot[
+    warmaxis,
+    xmin=-6, xmax=8,
+    ymin=0, ymax=0.45,
+    xlabel={$\theta$},
+    ylabel={Density (scaled)},
+    title={(a) I-projection: mode covering},
+    legend pos=north west,
+    legend cell align=left,
+    domain=-6:8,
+    samples=240
+  ]
+    \addplot [draw=none, fill=WarmSand!70, warmfill] {0.32*(0.4*exp(-((x+2)^2)/1.28) + 0.6*exp(-((x-3)^2)/1.28))} \closedcycle;
+    \addplot [warmcurve, color=WarmInk, dashed] {0.32*(0.4*exp(-((x+2)^2)/1.28) + 0.6*exp(-((x-3)^2)/1.28))};
+    \addlegendentry{$p(\theta\mid D)$}
+
+    \addplot [draw=none, fill=WarmTeal!70, warmfill] {0.34*exp(-((x-0.8)^2)/9.68)} \closedcycle;
+    \addplot [warmcurve, color=WarmTeal] {0.34*exp(-((x-0.8)^2)/9.68)};
+    \addlegendentry{$q^*$ (mode covering)}
+
+	  \nextgroupplot[
+	    warmaxis,
+	    xmin=-6, xmax=8,
+	    ymin=0, ymax=0.45,
+	    xlabel={$\theta$},
+	    title={(b) M-projection: mode seeking},
+	    legend pos=north east,
+	    legend cell align=left,
+	    domain=-6:8,
+	    samples=240
+	  ]
+    \addplot [draw=none, fill=WarmSand!70, warmfill] {0.32*(0.4*exp(-((x+2)^2)/1.28) + 0.6*exp(-((x-3)^2)/1.28))} \closedcycle;
+    \addplot [warmcurve, color=WarmInk, dashed] {0.32*(0.4*exp(-((x+2)^2)/1.28) + 0.6*exp(-((x-3)^2)/1.28))};
+    \addlegendentry{$p(\theta\mid D)$}
+
+    \addplot [draw=none, fill=WarmOrange!70, warmfill] {0.36*exp(-((x-3)^2)/1.62)} \closedcycle;
+    \addplot [warmcurve, color=WarmOrange] {0.36*exp(-((x-3)^2)/1.62)};
+    \addlegendentry{$q^*$ (mode seeking)}
+
+    \addplot [draw=none, fill=WarmRose!25] coordinates {(-5,0) (-1,0) (-1,0.36) (-5,0.36)} \closedcycle;
+	    \node[warmcallout] (ignoredmode) at (axis cs:-3.25,0.33) {Ignored mode};
+	    \draw[WarmRose, line width=1.0pt, ->] (ignoredmode.south east) -- (axis cs:-2.1,0.16);
+\end{groupplot}
+\end{tikzpicture}

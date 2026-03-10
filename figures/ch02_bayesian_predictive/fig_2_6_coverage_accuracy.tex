@@ -1,0 +1,40 @@
+\begin{tikzpicture}
+\begin{axis}[
+  warmaxis,
+  width=0.95\linewidth,
+  height=0.5\linewidth,
+  xmin=0, xmax=1.02,
+  ymin=0.82, ymax=1.0,
+  xlabel={Coverage (fraction predicted)},
+  ylabel={Accuracy on predicted},
+  title={Selective prediction: coverage--accuracy frontier},
+  legend pos=south west,
+  legend cell align=left,
+  domain=0:1,
+  samples=200
+]
+  % Baseline band
+  \addplot [draw=none, fill=WarmRose!18] coordinates {(0,0.82) (1.02,0.82) (1.02,0.85) (0,0.85)} \closedcycle;
+  \addplot [draw=none, fill=WarmTeal!10] coordinates {(0,0.95) (0.6,0.95) (0.6,1.0) (0,1.0)} \closedcycle;
+
+  % Frontier
+  \addplot [line width=2.6pt, color=WarmTeal] {0.85 + 0.13*pow(1 - x, 0.6)};
+  \addlegendentry{Frontier}
+
+  % Operating points
+  \addplot [only marks, mark=*, mark size=3.4pt, color=WarmOrange] coordinates {(1.0,0.85) (0.6,0.95) (0.2,0.97)};
+
+  \draw[WarmGray, line width=0.6pt, dash pattern=on 3pt off 3pt] (axis cs:1.0,0.82) -- (axis cs:1.0,0.85);
+  \draw[WarmGray, line width=0.6pt, dash pattern=on 3pt off 3pt] (axis cs:0.6,0.82) -- (axis cs:0.6,0.95);
+  \draw[WarmGray, line width=0.6pt, dash pattern=on 3pt off 3pt] (axis cs:0.2,0.82) -- (axis cs:0.2,0.97);
+
+  \node[warmcallout] (predictall) at (axis cs:0.86,0.858) {Predict all};
+  \draw[->, line width=0.7pt, color=WarmOrange] (predictall.east) -- (axis cs:1.0,0.85);
+
+  \node[warmcallout] (balanced) at (axis cs:0.65,0.972) {Balanced};
+  \draw[->, line width=0.7pt, color=WarmOrange] (balanced.south) -- (axis cs:0.6,0.95);
+
+  \node[warmcallout] (highprec) at (axis cs:0.26,0.992) {High precision};
+  \draw[->, line width=0.7pt, color=WarmOrange] (highprec.south) -- (axis cs:0.2,0.97);
+\end{axis}
+\end{tikzpicture}

@@ -1,0 +1,56 @@
+% Chapter 2 figure style (warm scientific)
+\definecolor{WarmPaper}{HTML}{F7F1E6}
+\definecolor{WarmInk}{HTML}{2F2522}
+\definecolor{WarmTeal}{HTML}{2F6E68}
+\definecolor{WarmOrange}{HTML}{D17A44}
+\definecolor{WarmGold}{HTML}{C9A227}
+\definecolor{WarmRose}{HTML}{B35B5B}
+\definecolor{WarmGray}{HTML}{7F7671}
+\definecolor{WarmSky}{HTML}{9FB3B0}
+\definecolor{WarmSand}{HTML}{E8DDCC}
+\definecolor{WarmUmber}{HTML}{7B5B46}
+
+\tikzset{
+  >=Latex,
+  warmcallout/.style={
+    fill=WarmPaper!92,
+    draw=WarmUmber!70,
+    rounded corners=2.5pt,
+    line width=0.6pt,
+    inner sep=3pt,
+    font=\small,
+    text=WarmInk
+  },
+  warmdot/.style={
+    circle,
+    fill=WarmOrange,
+    draw=WarmInk,
+    line width=0.4pt,
+    inner sep=1.2pt
+  }
+}
+
+\pgfplotsset{
+  warmaxis/.style={
+    axis line style={color=WarmGray, line width=0.6pt},
+    tick style={color=WarmGray, line width=0.5pt},
+    ticklabel style={font=\footnotesize, text=WarmInk},
+    label style={font=\small, text=WarmInk},
+    title style={font=\normalsize\bfseries, text=WarmInk},
+    grid=major,
+    grid style={line width=0.35pt, color=WarmGray!22},
+    axis background/.style={fill=WarmPaper},
+    every axis plot/.append style={line cap=round},
+    legend style={
+      font=\small,
+      draw=WarmUmber!70,
+      fill=WarmPaper!96,
+      fill opacity=0.95,
+      text opacity=1,
+      rounded corners=2pt
+    }
+  },
+  warmcurve/.style={line width=2.0pt},
+  warmfill/.style={fill opacity=0.28},
+  warmbar/.style={draw=WarmInk, line width=0.6pt}
+}

@@ -1,0 +1,93 @@
+% TikZ figure: Autoregressive factorization and incremental codelength
+\begin{tikzpicture}[x=1cm,y=1cm, font=\small, line cap=round, line join=round]
+  \definecolor{Ink}{HTML}{2F2A26}
+  \definecolor{Panel}{HTML}{FBF6ED}
+  \definecolor{WarmBlue}{HTML}{3D6E8E}
+  \definecolor{WarmTeal}{HTML}{4E8C85}
+  \definecolor{WarmOrange}{HTML}{E18B2E}
+  \definecolor{WarmRed}{HTML}{C95E4E}
+  \definecolor{WarmGray}{HTML}{B9B1A8}
+
+  \tikzset{
+    panel/.style={rounded corners=6pt, draw=Ink!35, line width=0.6pt},
+    token/.style={rounded corners=2pt, draw=Ink, line width=0.6pt, fill=WarmBlue!14,
+      minimum width=1.2cm, minimum height=0.55cm, align=center},
+    cond/.style={rounded corners=2pt, draw=Ink, line width=0.6pt, fill=WarmOrange!18,
+      minimum width=2.4cm, minimum height=0.55cm, align=center},
+    arrow/.style={-Latex, line width=0.8pt, draw=Ink},
+    note/.style={font=\footnotesize, text=Ink}
+  }
+
+  \path[panel, shade, top color=Panel, bottom color=Panel!78] (-0.6,-2.7) rectangle (12.6,4.2);
+
+  % (a) Chain rule panel
+  \node[note, anchor=west] at (-0.2,3.9) {\textbf{(a) Chain rule as conditional factors}};
+  \draw[arrow, draw=Ink!35, line width=0.6pt] (0.6,3.15) -- (9.8,3.15);
+  \node[note, anchor=west] at (3.9,3.32) {context grows left to right};
+
+  \node[cond] (c1) at (1.6,2.6) {$p(x_1)$};
+  \node[cond] (c2) at (5.1,2.6) {$p(x_2\mid x_1)$};
+  \node[cond] (c3) at (8.6,2.6) {$p(x_3\mid x_{1:2})$};
+
+  \node[token] (t1) at (1.6,1.4) {$x_1$};
+  \node[token] (t2) at (5.1,1.4) {$x_2$};
+  \node[token] (t3) at (8.6,1.4) {$x_3$};
+
+  \draw[arrow] (c1) -- (t1);
+  \draw[arrow] (c2) -- (t2);
+  \draw[arrow] (c3) -- (t3);
+  \draw[arrow, draw=Ink!45] (t1.east) -- (t2.west);
+  \draw[arrow, draw=Ink!45] (t2.east) -- (t3.west);
+
+  % Divider between panels
+  \draw[Ink!25, line width=0.4pt] (-0.2,1.1) -- (12.2,1.1);
+
+  % (b) Incremental codelength panel
+  \node[note, anchor=west] at (-0.2,0.85) {\textbf{(b) Incremental codelength accumulation}};
+  \def\ybase{-2.4}
+  \def\ys{0.35}
+  \def\barw{1.4}
+  \def\xone{2.0}
+  \def\xtwo{5.5}
+  \def\xthree{9.0}
+  \pgfmathsetmacro{\bA}{2.74}
+  \pgfmathsetmacro{\bB}{3.64}
+  \pgfmathsetmacro{\bC}{2.00}
+  \pgfmathsetmacro{\cA}{2.74}
+  \pgfmathsetmacro{\cB}{6.38}
+  \pgfmathsetmacro{\cC}{8.38}
+  \pgfmathsetmacro{\hA}{\bA*\ys}
+  \pgfmathsetmacro{\hB}{\bB*\ys}
+  \pgfmathsetmacro{\hC}{\bC*\ys}
+
+  \draw[Ink!60] (0.7,\ybase) -- (11.4,\ybase);
+  \draw[Ink!60] (0.7,\ybase) -- (0.7,\ybase+3.1);
+  \node[note, rotate=90] at (0.15,\ybase+1.6) {codelength (bits)};
+
+  \foreach \v in {0,2,4,6,8,10} {
+    \pgfmathsetmacro{\ty}{\ybase+\v*\ys}
+    \draw[Ink!60] (0.65,\ty) -- (0.75,\ty);
+    \node[font=\scriptsize, text=Ink, anchor=east] at (0.6,\ty) {\v};
+  }
+
+  \fill[WarmBlue!30] (\xone-\barw/2,\ybase) rectangle ++(\barw,\hA);
+  \fill[WarmOrange!35] (\xtwo-\barw/2,\ybase) rectangle ++(\barw,\hB);
+  \fill[WarmTeal!30] (\xthree-\barw/2,\ybase) rectangle ++(\barw,\hC);
+
+  \node[font=\scriptsize, text=Ink] at (\xone,\ybase+\hA+0.2) {2.74 bits};
+  \node[font=\scriptsize, text=Ink] at (\xtwo,\ybase+\hB+0.2) {3.64 bits};
+  \node[font=\scriptsize, text=Ink] at (\xthree,\ybase+\hC+0.2) {2.00 bits};
+
+  \node[note] at (\xone,\ybase-0.35) {$x_1$};
+  \node[note] at (\xtwo,\ybase-0.35) {$x_2$};
+  \node[note] at (\xthree,\ybase-0.35) {$x_3$};
+
+  \draw[WarmRed, line width=0.9pt, rounded corners=1pt,
+    preaction={draw=WarmRed!30, line width=2.4pt}]
+    (\xone,\ybase+\cA*\ys) -- (\xtwo,\ybase+\cB*\ys) -- (\xthree,\ybase+\cC*\ys);
+  \fill[WarmRed] (\xone,\ybase+\cA*\ys) circle (1.4pt);
+  \fill[WarmRed] (\xtwo,\ybase+\cB*\ys) circle (1.4pt);
+  \fill[WarmRed] (\xthree,\ybase+\cC*\ys) circle (1.4pt);
+
+  \node[note, text=WarmRed] at (10.8,\ybase+\cC*\ys+0.1) {total 8.38 bits};
+\end{tikzpicture}

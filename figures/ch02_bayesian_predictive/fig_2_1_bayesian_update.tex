@@ -1,0 +1,42 @@
+\begin{tikzpicture}
+\begin{axis}[
+  warmaxis,
+  width=0.95\linewidth,
+  height=0.52\linewidth,
+  xmin=0, xmax=1,
+  ymin=0, ymax=3.4,
+  xlabel={$\theta$ (probability of heads)},
+  ylabel={Density (scaled)},
+  title={Bayesian updating: prior $\rightarrow$ posterior},
+  legend pos=north west,
+  legend cell align=left,
+  domain=0.001:0.999,
+  samples=200
+]
+  % Posterior fill (draw first so lines sit on top)
+  \addplot [draw=none, fill=WarmTeal!70, warmfill] {1320*x^7*(1-x)^3} \closedcycle;
+
+  % Prior, likelihood, posterior
+  \addplot [warmcurve, color=WarmGray, dashed] {1};
+  \addlegendentry{Prior: Beta(1,1)}
+
+  \addplot [line width=1.4pt, color=WarmOrange, dotted] {220*x^7*(1-x)^3};
+  \addlegendentry{Likelihood (scaled)}
+
+  \addplot [warmcurve, color=WarmTeal] {1320*x^7*(1-x)^3};
+  \addlegendentry{Posterior: Beta(8,4)}
+
+  % Reference lines
+  \addplot [color=WarmTeal, line width=1.1pt, dash pattern=on 4pt off 3pt] coordinates {(0.667,0) (0.667,3.2)};
+  \addplot [color=WarmRose, line width=1.1pt, dash pattern=on 4pt off 3pt] coordinates {(0.70,0) (0.70,3.2)};
+
+  % Callouts
+  \node[warmcallout] (postmean) at (axis cs:0.52,3.08) {Posterior mean $=0.667$};
+  \draw[->, line width=0.7pt, color=WarmTeal] (postmean.south) -- (axis cs:0.667,2.55);
+
+  \node[warmcallout] (mle) at (axis cs:0.84,2.85) {MLE $=0.70$};
+  \draw[->, line width=0.7pt, color=WarmRose] (mle.west) -- (axis cs:0.70,2.25);
+
+	  \node[warmcallout] at (axis cs:0.18,0.65) {Data: 7H, 3T};
+\end{axis}
+\end{tikzpicture}

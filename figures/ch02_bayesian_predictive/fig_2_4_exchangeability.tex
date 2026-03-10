@@ -1,0 +1,55 @@
+\begin{tikzpicture}
+\begin{groupplot}[
+  group style={group size=2 by 1, horizontal sep=1.6cm},
+  width=0.48\linewidth,
+  height=0.48\linewidth
+]
+  \nextgroupplot[
+    warmaxis,
+    xbar,
+    bar width=12pt,
+	    xmin=0.55, xmax=0.78,
+    xlabel={Predicted probability},
+    ylabel={Data ordering},
+    title={(a) Order sensitivity},
+    symbolic y coords={ABCD,BADC,DCBA,CDAB},
+	    ytick=data,
+	    yticklabels={\ttfamily ABCD,\ttfamily BADC,\ttfamily DCBA,\ttfamily CDAB},
+	    nodes near coords,
+	    nodes near coords align={horizontal},
+	    every node near coord/.append style={font=\scriptsize, text=WarmInk}
+	  ]
+    \addplot+[xbar, warmbar, fill=WarmTeal!75, bar shift=-6pt] coordinates {(0.65,ABCD) (0.65,BADC) (0.65,DCBA) (0.65,CDAB)};
+    \addplot+[xbar, warmbar, fill=WarmOrange!75, bar shift=6pt] coordinates {(0.65,ABCD) (0.68,BADC) (0.61,DCBA) (0.67,CDAB)};
+	
+	    \addplot [color=WarmGray, line width=0.8pt, dash pattern=on 3pt off 3pt] coordinates {(0.65,ABCD) (0.65,CDAB)};
+	    \node[warmcallout, font=\scriptsize, inner sep=2pt, anchor=west, xshift=1pt] at (axis cs:0.56,CDAB) {Same prediction};
+
+  \nextgroupplot[
+	    warmaxis,
+	    ybar,
+	    ymin=0, ymax=0.0014,
+	    scaled y ticks=false,
+	    yticklabel style={
+	      /pgf/number format/fixed,
+	      /pgf/number format/precision=4
+	    },
+	    xlabel={},
+	    ylabel={Variance across orderings},
+	    title={(b) Exchangeability gap},
+    symbolic x coords={Exchangeable,Order-sensitive},
+    xtick=data,
+    xticklabel style={font=\scriptsize},
+    legend cell align=left,
+    legend style={font=\scriptsize, at={(0.02,0.98)}, anchor=north west},
+    nodes near coords,
+    nodes near coords align={vertical},
+    every node near coord/.append style={font=\scriptsize, text=WarmInk}
+  ]
+    \addplot+[ybar, warmbar, fill=WarmTeal!75] coordinates {(Exchangeable,0.0000)};
+    \addlegendentry{Exchangeable}
+    \addplot+[ybar, warmbar, fill=WarmOrange!75] coordinates {(Order-sensitive,0.0006)};
+    \addlegendentry{Order-sensitive}
+	    \node[warmcallout, font=\scriptsize, anchor=north east, align=center] at (rel axis cs:0.98,0.90) {Exchangeability\\gap};
+\end{groupplot}
+\end{tikzpicture}

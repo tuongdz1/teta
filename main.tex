@@ -1,0 +1,243 @@
+%==========================
+% main.tex  —  Full book build (multi-repo)
+%==========================
+\documentclass[11pt,oneside]{book}
+
+%==========================
+% Consolidated input + graphics search paths (mono-repo layout)
+%==========================
+\makeatletter
+\def\input@path{{chapters/}{figures/}{code/}}
+\makeatother
+
+%---- Layout & fonts
+\usepackage[margin=1.1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{textcomp}
+\setlength{\parskip}{0.5\baselineskip}
+\setlength{\parindent}{0pt}
+
+%---- Common vertical spacing helpers (used in some chapters)
+\newcommand{\vspSmall}{\vspace{0.5em}}
+\newcommand{\vspMed}{\vspace{0.6em}}
+\newcommand{\vspLarge}{\vspace{0.8em}}
+\newcommand{\vspPara}{\vspace{0.3cm}}
+\newcommand{\vspBlock}{\vspace{1em}}
+\newcommand{\vspSection}{\vspace{1.5em}}
+\newcommand{\vspChapter}{\vspace{2em}}
+
+%---- Math & tables
+\usepackage{amsmath,amssymb,mathtools}
+\DeclareMathOperator{\softmax}{softmax}
+\usepackage{booktabs}
+\ifdefined\XeTeXversion
+  % Some included chapter sources contain Unicode punctuation that isn't present
+  % in the Type1 Latin Modern fonts used here; map to LaTeX equivalents.
+  \global\catcode"2014=\active \gdef—{---}% EM DASH
+  \global\catcode"2019=\active \gdef’{\textquoteright{}}% RIGHT SINGLE QUOTE
+  \global\catcode"2026=\active \gdef…{\ldots{}}% ELLIPSIS
+  \global\catcode"2011=\active \gdef‑{\nobreakdash-}% NON-BREAKING HYPHEN
+\fi
+\newenvironment{hangparas}[2]{% #1=hangindent, #2=hangafter
+  \par\begingroup\hangindent=#1\relax\hangafter=#2\relax
+}{\par\endgroup}
+
+%---- Figures, colors, and plots
+\usepackage{graphicx,xcolor}
+\graphicspath{{figures/}{code/figures/}}
+
+% Chapter 2 uses TikZ/PGFPlots figures included via \input{figures/...}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+\usetikzlibrary{arrows.meta,positioning,calc,patterns}
+\usepgfplotslibrary{groupplots,fillbetween}
+
+% Ensure floats appear near their sections (optional)
+\IfFileExists{placeins.sty}{%
+  \usepackage[section]{placeins}%
+}{%
+  \newcommand{\FloatBarrier}{}%
+}
+
+%---- Tagging compatibility (tcolorbox 6.9 uses tagging sockets; disable if unavailable)
+\makeatletter
+\def\NewStructureName#1{}
+\def\DeclareDocumentStructure#1#2#3{}
+\def\AssignStructureRole#1#2{}
+\def\NewTaggingSocket#1#2{}
+\long\def\NewTaggingSocketPlug#1#2#3{}
+\def\AssignTaggingSocketPlug#1#2{}
+\def\UseTaggingSocket#1{}
+\def\UseStructureName#1{#1}
+\def\tagstructbegin#1{}
+\def\tagstructend{}
+\def\tagpdfparaOff#1{}
+\makeatother
+
+%---- Custom environments (MUST come early, before hyperref)
+\IfFileExists{tcolorbox.sty}{%
+  \usepackage[most]{tcolorbox}%
+
+  \newtcolorbox{keyinsight}{
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    title=Key Insight,
+    fonttitle=\bfseries,
+    breakable
+  }
+
+  \newtcolorbox{examplebox}{
+    colback=green!5!white,
+    colframe=green!50!black,
+    title=Worked Example,
+    fonttitle=\bfseries,
+    breakable
+  }
+
+  \newtcolorbox{pausebox}{
+    colback=orange!5!white,
+    colframe=orange!75!black,
+    fonttitle=\bfseries,
+    breakable
+  }
+
+  \newtcolorbox{intuitionbox}{
+    colback=purple!5!white,
+    colframe=purple!60!black,
+    title=Intuition,
+    fonttitle=\bfseries,
+    breakable
+  }
+
+  \newtcolorbox{notationbox}{
+    colback=gray!5!white,
+    colframe=gray!60!black,
+    title=Notation,
+    fonttitle=\bfseries,
+    breakable
+  }
+}{%
+  % Fallback: accept an optional argument (ignored) so callers like \begin{pausebox}[title=...] still compile.
+  \newenvironment{keyinsight}[1][]{\begin{quote}\small\noindent\textbf{Key Insight.}\ }{\end{quote}}
+  \newenvironment{examplebox}[1][]{\begin{quote}\small\noindent\textbf{Worked Example.}\ }{\end{quote}}
+  \newenvironment{pausebox}[1][]{\begin{quote}\small}{\end{quote}}
+  \newenvironment{intuitionbox}[1][]{\begin{quote}\small\noindent\textbf{Intuition.}\ }{\end{quote}}
+  \newenvironment{notationbox}[1][]{\begin{quote}\small\noindent\textbf{Notation.}\ }{\end{quote}}
+}
+
+\newenvironment{geometrylens}{%
+  \begin{quote}\small\noindent\textbf{Geometry Lens.}\ %
+}{%
+  \end{quote}
+}
+
+%---- Utilities
+\usepackage{etoolbox}
+
+%---- Keep a minimum amount of space before certain blocks (some chapters use \Needspace)
+\IfFileExists{needspace.sty}{\usepackage{needspace}}{}
+% Minimal fallback implementation (for TeX installs without needspace.sty).
+\providecommand{\Needspace}[1]{%
+  \par\penalty-100\begingroup
+  \dimen0=\pagegoal \advance\dimen0 by -\pagetotal
+  \ifdim\dimen0<#1\relax\newpage\fi
+  \endgroup
+}
+
+% Citations (chapters use \citep, \citet, ...)
+\usepackage[numbers,sort&compress]{natbib}
+
+%---- Helper for missing files
+\newcommand{\maybeinput}[1]{%
+  \IfFileExists{#1.tex}{%
+    \input{#1}%
+  }{%
+    \typeout{*** Warning: Missing file #1.tex ***}%
+  }%
+}
+
+%---- Hyperlinks & refs
+\usepackage[hidelinks]{hyperref}
+\IfFileExists{cleveref.sty}{%
+  \usepackage[nameinlink]{cleveref}%
+}{%
+  \newcommand{\cref}[1]{\ref{##1}}%
+  \newcommand{\Cref}[1]{\ref{##1}}%
+}
+
+% Conditional cross-reference with a readable fallback (useful when building a single chapter).
+\makeatletter
+\newcommand{\Crefifdefined}[2]{%
+  \@ifundefined{r@#1}{#2}{\Cref{#1}}%
+}
+\makeatother
+
+%==========================
+% Front matter
+%==========================
+\title{Information Geometry for Generative Models}
+\author{Hassana Labs}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\maybeinput{frontmatter/dedication}
+\maybeinput{frontmatter/frontmatter}
+
+\tableofcontents
+
+\maybeinput{frontmatter/contributors}
+
+%======================================================
+% PART I — Foundations: Information, Bayes, and Geometry
+%======================================================
+\part{Foundations: Information, Bayes, and Geometry}
+
+\maybeinput{chapters/part1/ch01_information_compression}
+\maybeinput{chapters/part1/ch02_bayesian_predictive}
+\maybeinput{chapters/part1/ch03_geometry_probability}
+\maybeinput{chapters/part1/ch04_highdim_representations}
+
+%======================================================
+% PART II — Models Through the Information-Geometric Lens
+%======================================================
+\part{Models Through the Information-Geometric Lens}
+
+\maybeinput{chapters/part2/ch05_transformers_compressors}
+\maybeinput{chapters/part2/ch06_representation_learning}
+\maybeinput{chapters/part2/ch07_diffusion_score}
+\maybeinput{chapters/part2/ch08_variational_flows}
+
+%======================================================
+% PART III — Learning & Generalization: Scaling, Data, and Optimization
+%======================================================
+\part{Learning \& Generalization: Scaling, Data, and Optimization}
+
+\maybeinput{chapters/part3/ch09_pacbayes_mdl}
+\maybeinput{chapters/part3/ch10_calibration}
+\maybeinput{chapters/part3/ch11_optimization_geometry}
+
+%======================================================
+% PART IV — Evaluation, Calibration, and Information Budgeting
+%======================================================
+\part{Evaluation, Calibration, and Information Budgeting}
+
+\maybeinput{chapters/part4/ch12_uncertainty}
+\maybeinput{chapters/part4/ch13_production_systems}
+
+%======================================================
+% Back matter
+%======================================================
+\backmatter
+
+\maybeinput{backmatter/appendices}
+\maybeinput{backmatter/bibliography}
+\maybeinput{backmatter/index}
+
+\end{document}

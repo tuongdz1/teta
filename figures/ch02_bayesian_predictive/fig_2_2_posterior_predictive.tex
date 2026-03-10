@@ -1,0 +1,55 @@
+\begin{tikzpicture}
+\begin{groupplot}[
+  group style={group size=2 by 1, horizontal sep=1.4cm},
+  width=0.48\linewidth,
+  height=0.46\linewidth
+]
+  \nextgroupplot[
+    warmaxis,
+    xmin=0, xmax=1,
+    ymin=0, ymax=3.2,
+    xlabel={$\theta$},
+    ylabel={$p(\theta\mid D)$ (scaled)},
+    title={(a) Posterior over $\theta$},
+    legend pos=north west,
+    legend cell align=left,
+    domain=0.001:0.999,
+    samples=200
+  ]
+    \addplot [draw=none, fill=WarmTeal!70, warmfill] {1320*x^7*(1-x)^3} \closedcycle;
+    \addplot [warmcurve, color=WarmTeal] {1320*x^7*(1-x)^3};
+    \addlegendentry{Posterior}
+
+    \addplot [color=WarmTeal, line width=1.1pt, dash pattern=on 4pt off 3pt] coordinates {(0.667,0) (0.667,3.1)};
+    \addplot [color=WarmRose, line width=1.1pt, dash pattern=on 4pt off 3pt] coordinates {(0.70,0) (0.70,3.1)};
+    \addlegendentry{Posterior mean / MLE}
+
+    \addplot [only marks, mark=*, mark size=2.5pt, color=WarmTeal] coordinates {(0.667,2.8)};
+    \addplot [only marks, mark=diamond*, mark size=2.5pt, color=WarmRose] coordinates {(0.70,2.45)};
+	    \node[warmcallout, anchor=west] at (rel axis cs:0.08,0.62) {Uncertainty mass};
+
+  \nextgroupplot[
+    warmaxis,
+    ybar,
+    bar width=18pt,
+	    ymin=0, ymax=1.0,
+    xlabel={Next flip},
+    ylabel={Probability},
+    title={(b) Predictive for next flip},
+    symbolic x coords={Tails,Heads},
+    xtick=data,
+    legend pos=north west,
+    legend cell align=left,
+    nodes near coords,
+    nodes near coords align={vertical},
+    every node near coord/.append style={font=\scriptsize, text=WarmInk}
+  ]
+    \addplot+[ybar, warmbar, fill=WarmRose!65, pattern=north east lines, pattern color=WarmRose!90, bar shift=-9pt] coordinates {(Tails,0.30) (Heads,0.70)};
+    \addlegendentry{MLE}
+
+    \addplot+[ybar, warmbar, fill=WarmTeal!75, bar shift=9pt] coordinates {(Tails,0.333) (Heads,0.667)};
+    \addlegendentry{Posterior predictive}
+
+		    \node[warmcallout, anchor=north east, align=center, inner sep=2.5pt] at (axis description cs:0.98,0.995) {Averaging\\softens\\extremes};
+\end{groupplot}
+\end{tikzpicture}

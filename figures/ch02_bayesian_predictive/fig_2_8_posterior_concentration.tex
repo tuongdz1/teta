@@ -1,0 +1,42 @@
+\begin{tikzpicture}
+\begin{axis}[
+  warmaxis,
+  width=0.95\linewidth,
+  height=0.5\linewidth,
+  xmin=0, xmax=1,
+  ymin=0, ymax=9,
+  xlabel={$\theta$ (probability of heads)},
+  ylabel={Posterior density (scaled)},
+  title={Posterior concentration as data grows},
+  legend pos=north west,
+  legend cell align=left,
+  domain=0.001:0.999,
+  samples=200
+]
+  % True value band
+  \addplot [draw=none, fill=WarmGold!18] coordinates {(0.635,0) (0.665,0) (0.665,9) (0.635,9)} \closedcycle;
+
+  % Prior
+  \addplot [warmcurve, color=WarmGray, dashed] {1};
+  \addlegendentry{Prior}
+
+  % Posteriors (normal approximations)
+  \addplot [draw=none, fill=WarmRose!70, warmfill] {2.6*exp(-((x-0.65)^2)/(2*0.14^2))} \closedcycle;
+  \addplot [warmcurve, color=WarmRose] {2.6*exp(-((x-0.65)^2)/(2*0.14^2))};
+  \addlegendentry{$n=10$}
+
+  \addplot [draw=none, fill=WarmOrange!70, warmfill] {4.6*exp(-((x-0.65)^2)/(2*0.06^2))} \closedcycle;
+  \addplot [warmcurve, color=WarmOrange] {4.6*exp(-((x-0.65)^2)/(2*0.06^2))};
+  \addlegendentry{$n=50$}
+
+  \addplot [draw=none, fill=WarmTeal!70, warmfill] {7.2*exp(-((x-0.65)^2)/(2*0.028^2))} \closedcycle;
+  \addplot [warmcurve, color=WarmTeal] {7.2*exp(-((x-0.65)^2)/(2*0.028^2))};
+  \addlegendentry{$n=200$}
+
+  % True value
+  \addplot [color=WarmInk, line width=1.0pt, dash pattern=on 3pt off 3pt] coordinates {(0.65,0) (0.65,8.7)};
+  \node[warmcallout] at (axis cs:0.79,8.2) {True $\theta=0.65$};
+  \draw[->, line width=0.7pt, color=WarmUmber] (axis cs:0.83,6.2) -- (axis cs:0.70,4.6);
+  \node[warmcallout] at (axis cs:0.87,6.5) {Narrowing};
+\end{axis}
+\end{tikzpicture}

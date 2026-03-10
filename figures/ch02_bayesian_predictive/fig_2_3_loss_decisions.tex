@@ -1,0 +1,40 @@
+\begin{tikzpicture}
+\begin{axis}[
+  warmaxis,
+  width=0.95\linewidth,
+  height=0.5\linewidth,
+  xmin=-5, xmax=25,
+  ymin=0, ymax=0.2,
+  xlabel={Temperature ($^\circ$C)},
+  ylabel={Posterior predictive density (scaled)},
+  title={Different losses $\Rightarrow$ different optimal decisions},
+  legend pos=north west,
+  legend cell align=left,
+  domain=-5:25,
+  samples=240
+]
+  \addplot [draw=none, fill=WarmTeal!70, warmfill] {0.18*(0.7*exp(-((x-20)^2)/8) + 0.3*exp(-((x-5)^2)/8))} \closedcycle;
+  \addplot [draw=none, fill=WarmOrange!35, warmfill] {0.18*(0.7*exp(-((x-20)^2)/8))} \closedcycle;
+  \addplot [draw=none, fill=WarmGold!35, warmfill] {0.18*(0.3*exp(-((x-5)^2)/8))} \closedcycle;
+  \addplot [warmcurve, color=WarmTeal] {0.18*(0.7*exp(-((x-20)^2)/8) + 0.3*exp(-((x-5)^2)/8))};
+  \addlegendentry{Posterior predictive}
+
+  % Mode, mean, median
+  \addplot [color=WarmRose, line width=1.1pt, dash pattern=on 4pt off 3pt] coordinates {(20,0) (20,0.19)};
+  \addplot [color=WarmOrange, line width=1.1pt, dash pattern=on 4pt off 3pt] coordinates {(15.5,0) (15.5,0.19)};
+  \addplot [color=WarmGold, line width=1.1pt, dash pattern=on 4pt off 3pt] coordinates {(18,0) (18,0.19)};
+
+  \addplot [only marks, mark=*, mark size=3.0pt, color=WarmRose] coordinates {(20,0.175)};
+  \addplot [only marks, mark=square*, mark size=2.8pt, color=WarmOrange] coordinates {(15.5,0.135)};
+  \addplot [only marks, mark=diamond*, mark size=2.8pt, color=WarmGold] coordinates {(18,0.155)};
+
+  \node[warmcallout] (mode) at (axis cs:22.0,0.178) {Mode (0--1 loss)};
+  \draw[->, line width=0.7pt, color=WarmRose] (mode.west) -- (axis cs:20,0.17);
+
+  \node[warmcallout] (mean) at (axis cs:11.8,0.165) {Mean (squared loss)};
+  \draw[->, line width=0.7pt, color=WarmOrange] (mean.east) -- (axis cs:15.5,0.135);
+
+  \node[warmcallout] (median) at (axis cs:18.8,0.125) {Median (absolute loss)};
+  \draw[->, line width=0.7pt, color=WarmGold] (median.west) -- (axis cs:18,0.155);
+\end{axis}
+\end{tikzpicture}

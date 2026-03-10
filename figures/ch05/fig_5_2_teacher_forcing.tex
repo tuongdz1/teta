@@ -1,0 +1,72 @@
+% TikZ figure: Teacher forcing vs. autoregressive generation
+\begin{tikzpicture}[x=1cm,y=1cm, font=\small, line cap=round, line join=round]
+  \definecolor{Ink}{HTML}{2F2A26}
+  \definecolor{PanelA}{HTML}{FFF6EC}
+  \definecolor{PanelB}{HTML}{F2F7F4}
+  \definecolor{WarmBlue}{HTML}{3D6E8E}
+  \definecolor{WarmTeal}{HTML}{4E8C85}
+  \definecolor{WarmOrange}{HTML}{E18B2E}
+  \definecolor{WarmRed}{HTML}{C95E4E}
+  \definecolor{WarmGray}{HTML}{B9B1A8}
+
+  \tikzset{
+    panel/.style={rounded corners=5pt, draw=Ink!35, line width=0.6pt},
+    token/.style={rounded corners=2.5pt, draw=Ink, line width=0.6pt, fill=WarmBlue!15,
+      minimum width=1.2cm, minimum height=0.55cm, align=center},
+    truth/.style={token, fill=WarmOrange!18},
+    pred/.style={token, fill=WarmTeal!18},
+    model/.style={rounded corners=2.5pt, draw=Ink, line width=0.7pt, fill=Ink!8,
+      minimum width=1.4cm, minimum height=0.65cm, align=center},
+    arrow/.style={-Latex, line width=0.8pt, draw=Ink},
+    faint/.style={draw=Ink!25, line width=0.5pt},
+    feedback/.style={-Latex, line width=0.9pt, draw=WarmRed},
+    label/.style={font=\footnotesize, text=Ink}
+  }
+
+  % Left panel: Teacher forcing
+  \begin{scope}[shift={(0,0)}]
+    \path[panel, shade, top color=PanelA, bottom color=PanelA!75] (-0.6,-0.35) rectangle (6.7,4.25);
+    \node[label, anchor=west] at (-0.35,3.95) {\textbf{(a) Teacher forcing (training)}};
+    \node[label] at (3.0,-0.2) {ground truth tokens};
+
+    \foreach \i/\x/\inpt/\out in {1/0.9/{\small $x_0$}/{\small $\hat{x}_1$},
+                                  2/3.1/{\small $x_1$}/{\small $\hat{x}_2$},
+                                  3/5.3/{\small $x_2$}/{\small $\hat{x}_3$}} {
+      \draw[faint] (\x,-0.05) -- (\x,2.9);
+      \node[truth] (in\i) at (\x,0.45) {\inpt};
+      \node[model] (m\i) at (\x,1.8) {Model};
+      \node[pred] (out\i) at (\x,2.9) {\out};
+      \draw[arrow] (in\i.north) -- (m\i.south);
+      \draw[arrow] (m\i.north) -- (out\i.south);
+    }
+
+    \node[font=\scriptsize, text=Ink] at (3.1,3.5) {parallel across $t$};
+  \end{scope}
+
+  % Right panel: Autoregressive generation
+  \begin{scope}[shift={(7.4,0)}]
+    \path[panel, shade, top color=PanelB, bottom color=PanelB!80] (-0.6,-0.35) rectangle (6.7,4.25);
+    \node[label, anchor=west] at (-0.35,3.95) {\textbf{(b) Autoregressive generation (inference)}};
+
+    \draw[arrow] (-0.75,0.35) -- (-0.75,2.95);
+    \node[label, anchor=south] at (-0.75,3.05) {time};
+
+    \foreach \i/\y/\instyle/\inpt/\out in {
+      1/0.45/truth/{\small $x_0$}/{\small $\hat{x}_1$},
+      2/1.75/pred/{\small $\hat{x}_1$}/{\small $\hat{x}_2$},
+      3/3.05/pred/{\small $\hat{x}_2$}/{\small $\hat{x}_3$}
+    } {
+      \node[\instyle] (rin\i) at (0.9,\y) {\inpt};
+      \node[model] (rm\i) at (3.0,\y) {Model};
+      \node[pred] (rout\i) at (5.1,\y) {\out};
+      \draw[arrow] (rin\i) -- (rm\i);
+      \draw[arrow] (rm\i) -- (rout\i);
+    }
+
+    \draw[feedback, rounded corners=4pt]
+      (rout1.east) -- (5.6,0.45) -- (5.6,3.80) -- (0.2,3.80) -- (0.2,1.75) -- (rin2.west);
+    \draw[feedback, rounded corners=4pt]
+      (rout2.east) -- (5.6,1.75) -- (5.6,3.95) -- (0.2,3.95) -- (0.2,3.05) -- (rin3.west);
+    \node[label, text=WarmRed, anchor=south] at (4.8,3.5) {sample \(\rightarrow\) feed back};
+  \end{scope}
+\end{tikzpicture}
